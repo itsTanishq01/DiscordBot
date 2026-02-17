@@ -1,0 +1,227 @@
+DISCORD AUTOMOD BOT - COMMAND MANUAL
+
+This document lists every available command, its purpose, and how to use it.
+The default prefix is "." (dot), but you use Slash Commands ("/") for a better experience.
+
+=== GENERAL CONFIGURATION ===
+
+/config view
+    Shows the current configuration for the server.
+    Use this to check if filters are enabled or disabled.
+
+/modlog set [channel]
+    Sets the channel where mod-logs will be sent.
+    Example: /modlog set #logs
+
+/prefix set [new_prefix]
+    Changes the bot's command prefix.
+    Example: /prefix set !
+
+=== SPAM FILTER ===
+Prevents users from sending too many messages in a short time.
+
+/spam enable
+    Turns the spam filter ON.
+
+/spam disable
+    Turns the spam filter OFF.
+
+/spam set [max_messages] [time_window]
+    Configures the threshold.
+    max_messages: Number of messages allowed.
+    time_window: Time in seconds.
+    Example: /spam set 5 10 (Allows 5 messages every 10 seconds)
+
+=== ATTACHMENT FILTER ===
+Limits the number of file attachments and blocks specific file types.
+
+/attachment enable
+    Turns the attachment filter ON.
+
+/attachment disable
+    Turns the attachment filter OFF.
+
+/attachment limit [count]
+    Sets the maximum number of attachments allowed per message.
+    Example: /attachment limit 3
+
+/attachment block [file_extension]
+    Blocks a specific file extension.
+    Example: /attachment block exe
+
+/attachment unblock [file_extension]
+    Unblocks a file extension.
+    Example: /attachment unblock exe
+
+=== MENTION FILTER ===
+Prevents mass mentions and spam tagging.
+
+/mention enable
+    Turns the mention filter ON.
+
+/mention disable
+    Turns the mention filter OFF.
+
+/mention limit [count]
+    Sets the maximum number of user/role mentions per message.
+    Example: /mention limit 5
+
+/mention blockeveryone [true/false]
+    Blocks messages containing @everyone.
+    Example: /mention blockeveryone true
+
+/mention blockhere [true/false]
+    Blocks messages containing @here.
+    Example: /mention blockhere true
+
+=== MESSAGE LIMIT FILTER ===
+Prevents large walls of text.
+
+/msglimit enable
+    Turns the message limit filter ON.
+
+/msglimit disable
+    Turns the message limit filter OFF.
+
+/msglimit lines [count]
+    Sets the maximum number of newlines (enter keys) allowed.
+    Example: /msglimit lines 20
+
+/msglimit words [count]
+    Sets the maximum number of words allowed.
+    Example: /msglimit words 500
+
+/msglimit characters [count]
+    Sets the maximum number of characters allowed.
+    Example: /msglimit characters 2000
+
+=== LINK FILTER ===
+Blocks links (URLs) and Discord Invites.
+
+/linkfilter enable
+    Turns the link filter ON.
+
+/linkfilter disable
+    Turns the link filter OFF.
+
+/linkfilter whitelist_add [domain]
+    Allows a specific domain to be posted.
+    Example: /linkfilter whitelist_add youtube.com
+
+/linkfilter whitelist_remove [domain]
+    Removes a domain from the whitelist.
+    Example: /linkfilter whitelist_remove youtube.com
+
+/linkfilter whitelist_list
+    Shows all currently whitelisted domains.
+
+/linkfilter regex_add [pattern]
+    Adds a custom Regex pattern to block. Advanced users only.
+    Example: /linkfilter regex_add (bad|worse)\.com
+
+/linkfilter regex_remove [pattern]
+    Removes a custom Regex pattern.
+
+=== WORD FILTER ===
+Blocks specific words or phrases.
+
+/wordfilter enable
+    Turns the word filter ON.
+
+/wordfilter disable
+    Turns the word filter OFF.
+
+/wordfilter add [word]
+    Adds a word to the ban list.
+    Example: /wordfilter add badword
+
+/wordfilter remove [word]
+    Removes a word from the ban list.
+    Example: /wordfilter remove badword
+
+/wordfilter list
+    Shows all currently banned words.
+
+/wordfilter partial [true/false]
+    match "scunthorpe" if "cunt" is banned?
+    true: Matches parts of words (strict).
+    false: Matches exact words only (lenient).
+    Example: /wordfilter partial true
+
+/wordfilter regex [true/false]
+    Treats all banned words as Regex patterns?
+    true: Use Regex matching (advanced).
+    false: Use standard matching (recommended).
+
+=== EXEMPTIONS ===
+Allows specific roles to bypass specific filters.
+
+/exempt add [rule] [role]
+    Exempts a role from a specific filter rule.
+    Rules: spam, attachment, mention, messageLimit, link, word.
+    Example: /exempt add link @Moderator
+
+/exempt remove [rule] [role]
+    Removes an exemption.
+    Example: /exempt remove link @Moderator
+
+/exempt list [rule]
+    Shows all roles exempt from a specific rule.
+    Example: /exempt list link
+
+=== MANUAL MODERATION ===
+Commands for moderators to punish users.
+
+/kick [member] [reason]
+    Kicks a member from the server.
+    Example: /kick @User Being rude
+
+/ban [member] [reason] [delete_days]
+    Bans a member from the server.
+    Example: /ban @User Spammer 1
+
+/unban [user_id]
+    Unbans a user by their ID.
+    Example: /unban 123456789012345678
+
+/timeout [member] [duration] [reason]
+    Mutes a member for a set time.
+    Duration format: 10m (minutes), 1h (hours), 1d (days).
+    Example: /timeout @User 1h Spamming
+
+/untimeout [member]
+    Removes a timeout prematurely.
+    Example: /untimeout @User
+
+/purge [amount]
+    Deletes the last X messages in the channel.
+    Example: /purge 50
+
+/warn [member] [reason]
+    Issues a formal warning. 3 warnings = automatic 1 hour timeout.
+    Example: /warn @User Stop spamming
+
+/warnings [member]
+    Lists all active warnings for a user.
+    Example: /warnings @User
+
+/clearwarnings [member]
+    Clears all warnings for a user.
+    Example: /clearwarnings @User
+
+=== UTILITY ===
+Helper commands for server management.
+
+/lock
+    Locks the current channel (prevents @everyone from sending messages).
+
+/unlock
+    Unlocks the current channel.
+
+/slowmode [seconds]
+    Sets the channel slowmode delay. 0 to disable.
+    Example: /slowmode 10
+
+/userinfo [member]
+    Shows account creation date, join date, and roles for a user.
+    Example: /userinfo @User
