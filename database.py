@@ -1,12 +1,14 @@
 import aiosqlite
 import json
+import os
 from config import defaultConfig
 
 db = None
 
 async def initDb():
     global db
-    db = await aiosqlite.connect("bot.db")
+    dbPath = "/data/bot.db" if os.path.isdir("/data") else "bot.db"
+    db = await aiosqlite.connect(dbPath)
     await db.execute("""
         CREATE TABLE IF NOT EXISTS config (
             guildId TEXT,
