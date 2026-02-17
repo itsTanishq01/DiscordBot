@@ -25,6 +25,8 @@ cogExtensions = [
     "cogs.messageLimitFilter",
     "cogs.linkFilter",
     "cogs.wordFilter",
+    "cogs.slashCommands",
+    "cogs.prefixCommands",
 ]
 
 @bot.event
