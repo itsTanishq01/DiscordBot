@@ -3,26 +3,14 @@
 > **Last Updated**: 2026-02-17
 
 ## Current Position
-- **Phase**: 1 (completed)
-- **Task**: All tasks complete
-- **Status**: Verified
+- **Phase**: 2
+- **Task**: Planning complete
+- **Status**: Ready for execution
 
-## Last Session Summary
-Phase 1 executed successfully. 3 plans, 6 tasks completed.
-
-Files created:
-- requirements.txt
-- config.py (21 default config keys)
-- database.py (4 tables, 15 async CRUD functions)
-- modlog.py (sendModLog embed builder)
-- main.py (entry point with dynamic prefix, cog loading)
-- cogs/spamFilter.py (stub)
-- cogs/attachmentFilter.py (stub)
-- cogs/mentionFilter.py (stub)
-- cogs/messageLimitFilter.py (stub)
-- cogs/linkFilter.py (stub)
-- cogs/wordFilter.py (stub)
-- .env.example, .gitignore, cogs/__init__.py
+## Plans Created
+- 2.1: Spam Filter & Attachment Filter (wave 1)
+- 2.2: Mention Filter & Message Limit Filter (wave 1)
+- 2.3: Link Filter & Word Filter (wave 1)
 
 ## Key Decisions
 - SQLite for config storage (ADR-001)
@@ -30,10 +18,11 @@ Files created:
 - Modular cog architecture: one file per filter (ADR-003)
 - camelCase naming convention (ADR-004)
 - All config values stored as strings in SQLite
-- isRoleExempt takes member.roles directly for convenience
+- Spam tracking is in-memory only (resets on restart)
+- Invalid user-provided regex patterns are skipped gracefully
 
 ## Blockers
 None
 
 ## Next Steps
-1. /plan 2 — Create Phase 2 execution plans (Core Filters)
+1. /execute 2
