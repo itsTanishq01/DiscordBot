@@ -42,7 +42,7 @@
 - Role exemption checks integrated into each filter
 
 ### Phase 3: Command System
-**Status**: ⬜ Not Started
+**Status**: ✅ Complete
 **Objective**: Admins can configure every filter via slash commands and prefix commands. Prefix is customizable.
 **Requirements**: REQ-11, REQ-12
 
