@@ -1,36 +1,25 @@
 # STATE.md — Project Memory
 
-> **Last Updated**: 2026-02-17
+> **Last Updated**: 2026-02-18
 
 ## Current Position
-- **Phase**: 2 (completed)
-- **Task**: All tasks complete
-- **Status**: Verified
+- **Phase**: 3
+- **Task**: Planning complete
+- **Status**: Ready for execution
 
-## Last Session Summary
-Phase 2 executed successfully. 3 plans, 6 tasks completed.
-
-Filters implemented:
-- cogs/spamFilter.py — per-user rate limiting with in-memory timestamps
-- cogs/attachmentFilter.py — attachment count + file type blocking
-- cogs/mentionFilter.py — mention limits + @everyone/@here blocking
-- cogs/messageLimitFilter.py — line/word/character limits
-- cogs/linkFilter.py — URL/invite detection, domain whitelist, custom regex
-- cogs/wordFilter.py — banned words with exact/partial/regex modes
-
-All filters: role exemptions, DB config reads, mod-log embeds, error handling.
+## Plans Created
+- 3.1: Slash Commands + main.py registration (wave 1)
+- 3.2: Prefix Commands (wave 1)
 
 ## Key Decisions
-- SQLite for config storage (ADR-001)
-- Hybrid commands: slash primary, prefix secondary (ADR-002)
-- Modular cog architecture: one file per filter (ADR-003)
-- camelCase naming convention (ADR-004)
-- Spam tracking is in-memory only (resets on restart)
-- Invalid regex patterns are skipped gracefully
-- All message.delete() wrapped in try/except for NotFound
+- All config responses are ephemeral (slash) or inline embeds (prefix)
+- app_commands.Group for slash command organization
+- commands.group for prefix command organization
+- app_commands.Choice dropdown for rule type selection in exempt commands
+- Boolean toggles accept on/off/true/1 in prefix commands
 
 ## Blockers
 None
 
 ## Next Steps
-1. /plan 3 — Create Phase 3 execution plans (Command System)
+1. /execute 3
