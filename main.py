@@ -44,6 +44,7 @@ cogExtensions = [
 
 @bot.event
 async def on_ready():
+    success = await initDb()
     if success:
         print("Database initialized successfully.")
     else:
