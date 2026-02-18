@@ -1,7 +1,7 @@
 import discord
 from database import getConfig
 
-async def sendModLog(bot, guildId, user, channel, rule, messageContent=None, attachment=None):
+async def sendModLog(bot, guildId, user, channel, rule, messageContent=None, attachment=None, **kwargs):
     logChannelId = await getConfig(guildId, "modLogChannel")
     
     if not logChannelId:
@@ -23,6 +23,9 @@ async def sendModLog(bot, guildId, user, channel, rule, messageContent=None, att
             
         if attachment:
             embed.add_field(name="Attachment", value=attachment.filename, inline=False)
+            
+        for key, value in kwargs.items():
+            embed.add_field(name=key.replace("_", " ").title(), value=str(value), inline=True)
             
         embed.set_footer(text=f"User ID: {user.id}")
         embed.timestamp = discord.utils.utcnow()
