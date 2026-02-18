@@ -647,7 +647,7 @@ class PrefixCommands(commands.Cog):
         if not words:
             await ctx.send(embed=discord.Embed(description="No banned words.", color=embedColor))
         else:
-            await ctx.send(embed=discord.Embed(description=f"Banned words:\n" + ", ".join(words), color=embedColor))
+            await ctx.send(embed=discord.Embed(description=f"**Banned words:**\n" + ", ".join(words), color=embedColor))
 
     @wordfilter.command(name="partial")
     @is_admin()
