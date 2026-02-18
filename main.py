@@ -82,7 +82,7 @@ async def on_ready():
         except Exception as e:
             print(f"Failed to sync to {guild.name}: {e}")
 
-    print(f"Bot ready as {bot.user} in {len(bot.guilds)} guild(s)")
+    print(f"AbyssBot ready as {bot.user} in {len(bot.guilds)} guild(s)")
     if not update_status.is_running():
         update_status.start()
 
