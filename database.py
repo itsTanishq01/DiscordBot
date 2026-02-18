@@ -29,7 +29,10 @@ async def initDb():
                 break # Success
             except Exception as e:
                 print(f"Connection attempt {attempt+1} failed: {e}")
-                if attempt == 2: raise e # Re-raise if last attempt
+                print(f"Exception type: {type(e).__name__}")
+                import traceback
+                traceback.print_exc()
+                if attempt == 2: raise e
                 await asyncio.sleep(2)
 
         # Create Tables if not exist

@@ -50,7 +50,7 @@ async def on_ready():
     else:
         print("CRITICAL: Database connection failed. Bot features may be broken.")
         # We continue just to let bot stay online, but skip initDefaults which would crash
-        # return  <-- Removed return to attempt loading cogs anyway
+        return
 
     for guild in bot.guilds:
         await initDefaults(guild.id)
