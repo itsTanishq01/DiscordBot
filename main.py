@@ -44,16 +44,23 @@ cogExtensions = [
 
 @bot.event
 async def on_ready():
-    success = await initDb()
-    if not success:
+    if success:
+        print("Database initialized successfully.")
+    else:
         print("CRITICAL: Database connection failed. Bot features may be broken.")
         # We continue just to let bot stay online, but skip initDefaults which would crash
-        return
+        # return  <-- Removed return to attempt loading cogs anyway
 
     for guild in bot.guilds:
         await initDefaults(guild.id)
+        
+    print(f"Loading {len(cogExtensions)} extensions...")
     for ext in cogExtensions:
-        await bot.load_extension(ext)
+        try:
+            await bot.load_extension(ext)
+            print(f"Loaded extension: {ext}")
+        except Exception as e:
+            print(f"FAILED to load extension {ext}: {e}")
     
     # Sync commands to all guilds for instant update
     for guild in bot.guilds:
