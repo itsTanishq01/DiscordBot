@@ -1,4 +1,5 @@
 import os
+import asyncio
 import discord
 from discord.ext import commands
 from dotenv import load_dotenv
@@ -44,6 +45,7 @@ cogExtensions = [
 
 @bot.event
 async def on_ready():
+    await asyncio.sleep(5)  # Allow network to stabilize on startup
     success = await initDb()
     if success:
         print("Database initialized successfully.")

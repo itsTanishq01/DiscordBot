@@ -16,15 +16,15 @@ async def initDb():
 
     try:
         # Retry loop for connection
-        for attempt in range(3):
+        for attempt in range(5):
             try:
                 # Create SSL context optimized for Windows/Supabase
                 ssl_ctx = ssl.create_default_context()
                 ssl_ctx.check_hostname = False
                 ssl_ctx.verify_mode = ssl.CERT_NONE
                 
-                print(f"Connecting to Database (Attempt {attempt+1}/3)...")
-                pool = await asyncpg.create_pool(db_url, ssl=ssl_ctx, command_timeout=10)
+                print(f"Connecting to Database (Attempt {attempt+1}/5)...")
+                pool = await asyncpg.create_pool(db_url, ssl=ssl_ctx, command_timeout=30)
                 print("Connected to Supabase/PostgreSQL!")
                 break # Success
             except Exception as e:
@@ -32,8 +32,10 @@ async def initDb():
                 print(f"Exception type: {type(e).__name__}")
                 import traceback
                 traceback.print_exc()
-                if attempt == 2: raise e
-                await asyncio.sleep(2)
+                if attempt == 4: raise e
+                wait = 5 * (attempt + 1)  # 5s, 10s, 15s, 20s backoff
+                print(f"Retrying in {wait}s...")
+                await asyncio.sleep(wait)
 
         # Create Tables if not exist
         async with pool.acquire() as conn:
