@@ -45,6 +45,15 @@ class Moderation(commands.Cog):
         if member.top_role >= interaction.user.top_role:
             await interaction.response.send_message("You cannot kick this member due to role hierarchy.", ephemeral=True)
             return
+            
+        # Check against Admin Role from Config
+        from database import getConfig
+        adminRoleId = await getConfig(interaction.guild_id, "adminRoleId")
+        if adminRoleId:
+            adminRole = interaction.guild.get_role(int(adminRoleId))
+            if adminRole and adminRole in member.roles:
+                await interaction.response.send_message(f"You cannot kick a member with the **{adminRole.name}** role.", ephemeral=True)
+                return
 
         try:
             await member.send(f"You were kicked from **{interaction.guild.name}**. Reason: {reason}")
@@ -73,6 +82,15 @@ class Moderation(commands.Cog):
         if member.top_role >= interaction.user.top_role:
             await interaction.response.send_message("You cannot ban this member due to role hierarchy.", ephemeral=True)
             return
+
+        # Check against Admin Role from Config
+        from database import getConfig
+        adminRoleId = await getConfig(interaction.guild_id, "adminRoleId")
+        if adminRoleId:
+            adminRole = interaction.guild.get_role(int(adminRoleId))
+            if adminRole and adminRole in member.roles:
+                await interaction.response.send_message(f"You cannot ban a member with the **{adminRole.name}** role.", ephemeral=True)
+                return
 
         try:
             await member.send(f"You were banned from **{interaction.guild.name}**. Reason: {reason}")

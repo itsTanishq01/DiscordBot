@@ -80,6 +80,15 @@ class PrefixCommands(commands.Cog):
         if member.top_role >= ctx.author.top_role and ctx.author.id != ctx.guild.owner_id:
              await ctx.send("You cannot kick this member due to role hierarchy.")
              return
+
+        # Check against Admin Role from Config
+        from database import getConfig
+        adminRoleId = await getConfig(ctx.guild.id, "adminRoleId")
+        if adminRoleId:
+            adminRole = ctx.guild.get_role(int(adminRoleId))
+            if adminRole and adminRole in member.roles:
+                await ctx.send(f"You cannot kick a member with the **{adminRole.name}** role.")
+                return
         
         if member.top_role >= ctx.guild.me.top_role:
              await ctx.send("I cannot kick this member (their role is higher than mine).")
@@ -103,6 +112,15 @@ class PrefixCommands(commands.Cog):
         if member.top_role >= ctx.author.top_role and ctx.author.id != ctx.guild.owner_id:
              await ctx.send("You cannot ban this member due to role hierarchy.")
              return
+             
+        # Check against Admin Role from Config
+        from database import getConfig
+        adminRoleId = await getConfig(ctx.guild.id, "adminRoleId")
+        if adminRoleId:
+            adminRole = ctx.guild.get_role(int(adminRoleId))
+            if adminRole and adminRole in member.roles:
+                await ctx.send(f"You cannot ban a member with the **{adminRole.name}** role.")
+                return
 
         if member.top_role >= ctx.guild.me.top_role:
              await ctx.send("I cannot ban this member (their role is higher than mine).")
