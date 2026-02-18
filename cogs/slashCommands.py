@@ -258,9 +258,9 @@ class SlashCommands(commands.Cog):
     async def word_list(self, interaction: discord.Interaction):
         words = await getBannedWords(interaction.guild_id)
         if not words:
-            await interaction.response.send_message(embed=discord.Embed(description="No banned words.", color=embedColor), ephemeral=True)
+            await interaction.response.send_message(embed=discord.Embed(description="No banned words.", color=embedColor), ephemeral=False)
         else:
-            await interaction.response.send_message(embed=discord.Embed(description=f"**Banned words:**\n" + ", ".join(words), color=embedColor), ephemeral=True)
+            await interaction.response.send_message(embed=discord.Embed(description=f"**Banned words:**\n" + ", ".join(words), color=embedColor), ephemeral=False)
 
     @word_group.command(name="partial", description="Toggle partial matching")
     async def word_partial(self, interaction: discord.Interaction, enabled: bool):

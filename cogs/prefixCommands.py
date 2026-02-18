@@ -21,6 +21,13 @@ class PrefixCommands(commands.Cog):
     async def ping(self, ctx):
         await ctx.send(f"Pong! 🏓 {round(self.bot.latency * 1000)}ms")
 
+    @commands.command(name="sync")
+    @commands.is_owner()
+    async def sync(self, ctx):
+        msg = await ctx.send("Syncing commands...")
+        synced = await self.bot.tree.sync()
+        await msg.edit(content=f"Synced {len(synced)} commands globally!")
+
     @commands.Cog.listener()
     async def on_command_error(self, ctx, error):
         if isinstance(error, commands.MissingPermissions):
