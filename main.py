@@ -4,6 +4,7 @@ from discord.ext import commands
 from dotenv import load_dotenv
 from config import defaultPrefix, requiredIntents
 from database import initDb, initDefaults, getConfig
+from keep_alive import keep_alive
 
 load_dotenv()
 
@@ -65,4 +66,5 @@ async def on_ready():
 async def on_guild_join(guild):
     await initDefaults(guild.id)
 
+keep_alive()
 bot.run(os.getenv("BOT_TOKEN"))
