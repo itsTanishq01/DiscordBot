@@ -19,6 +19,10 @@ class SlashCommands(commands.Cog):
             await interaction.response.send_message("You need Administrator permission.", ephemeral=True)
         else:
             await interaction.response.send_message(f"Error: {error}", ephemeral=True)
+            
+    @app_commands.command(name="ping", description="Check bot latency")
+    async def ping(self, interaction: discord.Interaction):
+        await interaction.response.send_message(f"Pong! 🏓 {round(self.bot.latency * 1000)}ms", ephemeral=True)
 
     @app_commands.command(name="config", description="View current configuration")
     @app_commands.checks.has_permissions(administrator=True)
