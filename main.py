@@ -9,9 +9,15 @@ from keep_alive import keep_alive
 load_dotenv()
 
 async def getPrefix(bot, message):
-    if message.guild:
-        prefix = await getConfig(message.guild.id, "prefix")
-        return prefix if prefix else defaultPrefix
+    try:
+        if message.guild:
+            prefix = await getConfig(message.guild.id, "prefix")
+            return prefix if prefix else defaultPrefix
+    except AttributeError:
+        # DB pool might be None during startup
+        pass
+    except Exception as e:
+        print(f"Error fetching prefix: {e}")
     return defaultPrefix
 
 bot = commands.Bot(
