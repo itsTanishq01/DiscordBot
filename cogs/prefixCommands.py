@@ -258,19 +258,33 @@ class PrefixCommands(commands.Cog):
         else:
              await ctx.send(f"✅ Slowmode set to {seconds} seconds.")
 
-    @commands.command(name="userinfo")
-    async def userinfo(self, ctx, member: discord.Member = None):
+    @commands.command(name="whois", aliases=["userinfo"])
+    async def whois(self, ctx, member: discord.Member = None):
         member = member or ctx.author
         
         roles = [role.mention for role in member.roles if role != ctx.guild.default_role]
         roles_str = ", ".join(roles) if roles else "None"
         
+        # Get Warnings
+        from database import getWarnings
+        warnings = await getWarnings(ctx.guild.id, member.id)
+        warn_count = len(warnings)
+        
         embed = discord.Embed(title=f"User Info: {member.display_name}", color=member.color)
         embed.set_thumbnail(url=member.display_avatar.url)
-        embed.add_field(name="ID", value=member.id, inline=True)
-        embed.add_field(name="Created At", value=member.created_at.strftime("%Y-%m-%d"), inline=True)
-        embed.add_field(name="Joined At", value=member.joined_at.strftime("%Y-%m-%d"), inline=True)
-        embed.add_field(name="Roles", value=roles_str, inline=False)
+        
+        embed.add_field(name="Identity", value=f"**Mention:** {member.mention}\n**ID:** `{member.id}`", inline=False)
+        
+        created = member.created_at.strftime("%Y-%m-%d %H:%M")
+        joined = member.joined_at.strftime("%Y-%m-%d %H:%M")
+        embed.add_field(name="Dates", value=f"**Created:** {created}\n**Joined:** {joined}", inline=False)
+        
+        embed.add_field(name="Moderation", value=f"**Warnings:** {warn_count}", inline=True)
+        
+        embed.add_field(name=f"Roles [{len(roles)}]", value=roles_str, inline=False)
+        
+        embed.set_footer(text=f"Requested by {ctx.author.display_name}")
+        embed.timestamp = discord.utils.utcnow()
         
         await ctx.send(embed=embed)
 

@@ -1,7 +1,7 @@
 import os
 import asyncio
 import discord
-from discord.ext import commands
+from discord.ext import commands, tasks
 from dotenv import load_dotenv
 from config import defaultPrefix, requiredIntents
 from database import initDb, initDefaults, getConfig
@@ -25,6 +25,14 @@ bot = commands.Bot(
     command_prefix=getPrefix,
     intents=requiredIntents
 )
+
+@tasks.loop(minutes=10)
+async def update_status():
+    await bot.change_presence(activity=discord.Activity(type=discord.ActivityType.watching, name=f"{len(bot.guilds)} Servers"))
+
+@update_status.before_loop
+async def before_status():
+    await bot.wait_until_ready()
 
 cogExtensions = [
     "cogs.spamFilter",
@@ -75,6 +83,8 @@ async def on_ready():
             print(f"Failed to sync to {guild.name}: {e}")
 
     print(f"Bot ready as {bot.user} in {len(bot.guilds)} guild(s)")
+    if not update_status.is_running():
+        update_status.start()
 
 @bot.command()
 @commands.is_owner()

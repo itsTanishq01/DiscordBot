@@ -48,20 +48,37 @@ class Utility(commands.Cog):
         else:
             await interaction.response.send_message(f"🐢 Slowmode set to {seconds} seconds.", ephemeral=True)
 
-    @app_commands.command(name="userinfo", description="Get info about a user")
+    @app_commands.command(name="whois", description="Get detailed info about a user (warnings, roles, etc.)")
     @app_commands.describe(member="Member to inspect")
-    async def userinfo(self, interaction: discord.Interaction, member: discord.Member):
-        embed = discord.Embed(title=f"User Info: {member.name}", color=member.color)
-        embed.set_thumbnail(url=member.display_avatar.url)
-        embed.add_field(name="ID", value=member.id, inline=True)
-        embed.add_field(name="Joined Server", value=member.joined_at.strftime("%Y-%m-%d"), inline=True)
-        embed.add_field(name="Account Created", value=member.created_at.strftime("%Y-%m-%d"), inline=True)
-        
+    async def whois(self, interaction: discord.Interaction, member: discord.Member):
+        # Fetch detailed info
         roles = [role.mention for role in member.roles if role != interaction.guild.default_role]
+        role_str = " ".join(roles) if roles else "None"
+        
+        # Get Warnings Count
+        from database import getWarnings
+        warnings = await getWarnings(interaction.guild_id, member.id)
+        warn_count = len(warnings)
+        
+        # Create Embed
+        embed = discord.Embed(title=f"User Info: {member.display_name}", color=member.color)
+        embed.set_thumbnail(url=member.display_avatar.url)
+        
+        embed.add_field(name="Identity", value=f"**Mention:** {member.mention}\n**ID:** `{member.id}`", inline=False)
+        
+        created = member.created_at.strftime("%Y-%m-%d %H:%M:%S")
+        joined = member.joined_at.strftime("%Y-%m-%d %H:%M:%S")
+        embed.add_field(name="Dates", value=f"**Created:** {created}\n**Joined:** {joined}", inline=False)
+        
+        embed.add_field(name="Moderation", value=f"**Warnings:** {warn_count}", inline=True)
+        
         if roles:
-            embed.add_field(name=f"Roles ({len(roles)})", value=" ".join(roles), inline=False)
+            embed.add_field(name=f"Roles [{len(roles)}]", value=role_str, inline=False)
             
-        await interaction.response.send_message(embed=embed, ephemeral=True)
+        embed.set_footer(text=f"Requested by {interaction.user.display_name}")
+        embed.timestamp = discord.utils.utcnow()
+            
+        await interaction.response.send_message(embed=embed, ephemeral=False)
 
 async def setup(bot):
     await bot.add_cog(Utility(bot))
