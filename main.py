@@ -58,9 +58,17 @@ async def on_ready():
         except Exception as e:
             print(f"Failed to sync to {guild.name}: {e}")
 
-    # Also sync global just in case
-    await bot.tree.sync()
     print(f"Bot ready as {bot.user} in {len(bot.guilds)} guild(s)")
+
+@bot.command()
+@commands.is_owner()
+async def sync(ctx):
+    """Syncs slash commands globally."""
+    try:
+        synced = await bot.tree.sync()
+        await ctx.send(f"Synced {len(synced)} command(s) globally.")
+    except Exception as e:
+        await ctx.send(f"Failed to sync: {e}")
 
 @bot.event
 async def on_guild_join(guild):
