@@ -72,6 +72,10 @@ class Utility(commands.Cog):
         
         embed.add_field(name="Moderation", value=f"**Warnings:** {warn_count}", inline=True)
         
+        if warnings:
+             last_warn_reason = warnings[-1][1] # (modId, reason, timestamp)
+             embed.add_field(name="Last Warning", value=last_warn_reason, inline=True)
+        
         if roles:
             embed.add_field(name=f"Roles [{len(roles)}]", value=role_str, inline=False)
             

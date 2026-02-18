@@ -306,6 +306,10 @@ class PrefixCommands(commands.Cog):
         
         embed.add_field(name="Moderation", value=f"**Warnings:** {warn_count}", inline=True)
         
+        if warnings:
+             last_warn_reason = warnings[-1][1]
+             embed.add_field(name="Last Warning", value=last_warn_reason, inline=True)
+        
         embed.add_field(name=f"Roles [{len(roles)}]", value=roles_str, inline=False)
         
         embed.set_footer(text=f"Requested by {ctx.author.display_name}")
