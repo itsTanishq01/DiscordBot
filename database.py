@@ -24,14 +24,22 @@ async def initDb():
                 ssl_ctx.verify_mode = ssl.CERT_NONE
                 
                 print(f"Connecting to Database (Attempt {attempt+1}/5)...")
-                pool = await asyncpg.create_pool(db_url, ssl=ssl_ctx, command_timeout=30)
+                # statement_cache_size=0 is required for Supabase Transaction Pooler (port 6543)
+                pool = await asyncpg.create_pool(db_url, ssl=ssl_ctx, command_timeout=30, statement_cache_size=0)
                 print("Connected to Supabase/PostgreSQL!")
                 break # Success
+            except OSError as e:
+                print(f"Network Error (Attempt {attempt+1}): {e}")
+                if "Network is unreachable" in str(e) or (hasattr(e, 'errno') and e.errno == 101):
+                    print("CRITICAL: Network execution failed. If using Supabase, you MUST use the Connection Pooler (Session Mode, port 5432) or Transaction Mode (port 6543) URL.")
+                    print("Direct connection (db.project.supabase.co) does not support IPv4 on free tier.")
+                if attempt == 4: raise e
+                wait = 5 * (attempt + 1)
+                print(f"Retrying in {wait}s...")
+                await asyncio.sleep(wait)
             except Exception as e:
                 print(f"Connection attempt {attempt+1} failed: {e}")
                 print(f"Exception type: {type(e).__name__}")
-                import traceback
-                traceback.print_exc()
                 if attempt == 4: raise e
                 wait = 5 * (attempt + 1)  # 5s, 10s, 15s, 20s backoff
                 print(f"Retrying in {wait}s...")
