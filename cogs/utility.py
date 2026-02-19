@@ -1,7 +1,7 @@
 import discord
 from discord.ext import commands
 from discord import app_commands
-from database import hasCommandPerm
+from database import hasCommandPerm, addExemptChannel, removeExemptChannel, getExemptChannels
 
 class Utility(commands.Cog):
     def __init__(self, bot):
@@ -83,6 +83,49 @@ class Utility(commands.Cog):
         embed.timestamp = discord.utils.utcnow()
             
         await interaction.response.send_message(embed=embed, ephemeral=False)
+
+    @app_commands.command(name="exemptchannel", description="Exempt a channel from a filter")
+    @app_commands.describe(channel="Channel to exempt", rule="Filter rule (spam, link, word)")
+    @app_commands.choices(rule=[
+        app_commands.Choice(name="Spam Filter", value="spam"),
+        app_commands.Choice(name="Link Filter", value="link"),
+        app_commands.Choice(name="Word Filter", value="word")
+    ])
+    async def exemptchannel(self, interaction: discord.Interaction, channel: discord.TextChannel, rule: app_commands.Choice[str]):
+        if not await self.check_auth(interaction, "exemptchannel", interaction.user.guild_permissions.manage_channels): return
+
+        await addExemptChannel(interaction.guild_id, rule.value, channel.id)
+        await interaction.response.send_message(f"✅ Channel {channel.mention} is now exempt from **{rule.name}**.", ephemeral=True)
+
+    @app_commands.command(name="unexemptchannel", description="Remove exemption for a channel")
+    @app_commands.describe(channel="Channel to remove exemption", rule="Filter rule")
+    @app_commands.choices(rule=[
+        app_commands.Choice(name="Spam Filter", value="spam"),
+        app_commands.Choice(name="Link Filter", value="link"),
+        app_commands.Choice(name="Word Filter", value="word")
+    ])
+    async def unexemptchannel(self, interaction: discord.Interaction, channel: discord.TextChannel, rule: app_commands.Choice[str]):
+        if not await self.check_auth(interaction, "unexemptchannel", interaction.user.guild_permissions.manage_channels): return
+
+        await removeExemptChannel(interaction.guild_id, rule.value, channel.id)
+        await interaction.response.send_message(f"🗑️ Removed **{rule.name}** exemption for {channel.mention}.", ephemeral=True)
+
+    @app_commands.command(name="listexemptions", description="List exempt channels for a rule")
+    @app_commands.choices(rule=[
+        app_commands.Choice(name="Spam Filter", value="spam"),
+        app_commands.Choice(name="Link Filter", value="link"),
+        app_commands.Choice(name="Word Filter", value="word")
+    ])
+    async def listexemptions(self, interaction: discord.Interaction, rule: app_commands.Choice[str]):
+        if not await self.check_auth(interaction, "listexemptions", interaction.user.guild_permissions.manage_channels): return
+
+        channels = await getExemptChannels(interaction.guild_id, rule.value)
+        if not channels:
+            await interaction.response.send_message(f"No channels are exempt from **{rule.name}**.", ephemeral=True)
+            return
+            
+        mentions = [f"<#{cid}>" for cid in channels]
+        await interaction.response.send_message(f"Channels exempt from **{rule.name}**:\n" + ", ".join(mentions), ephemeral=True)
 
 async def setup(bot):
     await bot.add_cog(Utility(bot))

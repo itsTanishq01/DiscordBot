@@ -2,7 +2,8 @@ import time
 from collections import defaultdict
 import discord
 from discord.ext import commands
-from database import getConfig, isRoleExempt
+from database import getConfig, isRoleExempt, isChannelExempt
+
 from modlog import sendModLog
 
 class SpamFilter(commands.Cog):
@@ -23,6 +24,9 @@ class SpamFilter(commands.Cog):
             return
 
         if await isRoleExempt(guildId, "spam", message.author.roles):
+            return
+
+        if await isChannelExempt(guildId, "spam", message.channel.id):
             return
 
         spamMaxMessages = int(await getConfig(guildId, "spamMaxMessages") or 5)

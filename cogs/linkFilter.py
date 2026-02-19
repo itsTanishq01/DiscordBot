@@ -3,7 +3,7 @@ import json
 from urllib.parse import urlparse
 import discord
 from discord.ext import commands
-from database import getConfig, isRoleExempt, getWhitelistDomains
+from database import getConfig, isRoleExempt, getWhitelistDomains, isChannelExempt
 from modlog import sendModLog
 
 urlPattern = re.compile(r"https?://[^\s<>\"']+|www\.[^\s<>\"']+", re.IGNORECASE)
@@ -25,6 +25,9 @@ class LinkFilter(commands.Cog):
             return
 
         if await isRoleExempt(guildId, "link", message.author.roles):
+            return
+
+        if await isChannelExempt(guildId, "link", message.channel.id):
             return
 
         whitelist = await getWhitelistDomains(guildId)

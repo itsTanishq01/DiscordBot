@@ -99,6 +99,16 @@ async def initDb():
                 );
             """)
 
+            # Channel Exemptions Table
+            await conn.execute("""
+                CREATE TABLE IF NOT EXISTS exempt_channels (
+                    guild_id TEXT,
+                    rule TEXT,
+                    channel_id TEXT,
+                    PRIMARY KEY (guild_id, rule, channel_id)
+                );
+            """)
+
         return True
 
     except Exception as e:
@@ -164,6 +174,33 @@ async def isRoleExempt(guildId, ruleType, memberRoles):
         if str(role.id) in exemptData:
             return True
     return False
+
+async def addExemptChannel(guildId, ruleType, channelId):
+    async with pool.acquire() as conn:
+        await conn.execute("""
+            INSERT INTO exempt_channels (guild_id, rule, channel_id) 
+            VALUES ($1, $2, $3) 
+            ON CONFLICT DO NOTHING
+        """, str(guildId), ruleType, str(channelId))
+
+async def removeExemptChannel(guildId, ruleType, channelId):
+    async with pool.acquire() as conn:
+        await conn.execute("""
+            DELETE FROM exempt_channels 
+            WHERE guild_id = $1 AND rule = $2 AND channel_id = $3
+        """, str(guildId), ruleType, str(channelId))
+
+async def getExemptChannels(guildId, ruleType):
+    async with pool.acquire() as conn:
+        rows = await conn.fetch("""
+            SELECT channel_id FROM exempt_channels 
+            WHERE guild_id = $1 AND rule = $2
+        """, str(guildId), ruleType)
+        return [row['channel_id'] for row in rows]
+
+async def isChannelExempt(guildId, ruleType, channelId):
+    exemptChannels = await getExemptChannels(guildId, ruleType)
+    return str(channelId) in exemptChannels
 
 # --- Filters (Words, Domains) ---
 async def addBannedWord(guildId, word):

@@ -1,7 +1,7 @@
 import re
 import discord
 from discord.ext import commands
-from database import getConfig, isRoleExempt, getBannedWords
+from database import getConfig, isRoleExempt, getBannedWords, isChannelExempt
 from modlog import sendModLog
 
 class WordFilter(commands.Cog):
@@ -20,6 +20,9 @@ class WordFilter(commands.Cog):
             return
 
         if await isRoleExempt(guildId, "word", message.author.roles):
+            return
+
+        if await isChannelExempt(guildId, "word", message.channel.id):
             return
 
         bannedWords = await getBannedWords(guildId)

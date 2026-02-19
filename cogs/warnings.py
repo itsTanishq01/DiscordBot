@@ -3,7 +3,7 @@ from discord import app_commands
 from discord.ext import commands
 import time
 import datetime
-from database import addWarning, getWarnings, clearWarnings, hasCommandPerm
+from database import addWarning, getWarnings, clearWarnings, hasCommandPerm, setConfig, getConfig
 from modlog import sendModLog
 
 class Warnings(commands.Cog):
@@ -37,11 +37,12 @@ class Warnings(commands.Cog):
         response_msg = f"⚠️ Warned {member.mention}. They now have **{count}** warnings."
         action_msg = ""
 
-        # Auto-punish at 3 warnings
-        if count >= 3:
+        # Auto-punish at threshold
+        threshold = int(await getConfig(interaction.guild_id, "warnThreshold") or 3)
+        if count >= threshold:
             try:
                 duration = datetime.timedelta(hours=1)
-                await member.timeout(discord.utils.utcnow() + duration, reason="Auto-punish: 3 warnings")
+                await member.timeout(discord.utils.utcnow() + duration, reason=f"Auto-punish: {threshold} warnings")
                 action_msg = "\n🚫 **Auto-Punish**: User timed out for 1 hour."
             except discord.Forbidden:
                 action_msg = "\n❌ Failed to auto-timeout (missing permissions)."
@@ -96,6 +97,18 @@ class Warnings(commands.Cog):
             rule="Clear Warnings",
             messageContent=f"All warnings cleared by {interaction.user.mention}"
         )
+
+    @app_commands.command(name="setthreshold", description="Set the warning auto-punish threshold")
+    @app_commands.describe(amount="Number of warnings to trigger timeout (default: 3)")
+    async def setthreshold(self, interaction: discord.Interaction, amount: int):
+        if not await self.check_auth(interaction, "setthreshold", interaction.user.guild_permissions.administrator): return
+
+        if amount < 1:
+            await interaction.response.send_message("Threshold must be at least 1.", ephemeral=True)
+            return
+
+        await setConfig(interaction.guild_id, "warnThreshold", str(amount))
+        await interaction.response.send_message(f"✅ Warning threshold set to **{amount}**. Users will be timed out on their {amount}th warning.", ephemeral=True)
 
 async def setup(bot):
     await bot.add_cog(Warnings(bot))
