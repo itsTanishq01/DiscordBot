@@ -231,6 +231,14 @@ class SlashCommands(commands.Cog):
         else:
             await interaction.response.send_message("Pattern not found.", ephemeral=True)
 
+    @link_group.command(name="list", description="List filtered link patterns")
+    async def link_list(self, interaction: discord.Interaction):
+        current = json.loads(await getConfig(interaction.guild_id, "linkRegexPatterns") or "[]")
+        if not current:
+            await interaction.response.send_message(embed=discord.Embed(description="No filtered link patterns.", color=embedColor), ephemeral=False)
+        else:
+            await interaction.response.send_message(embed=discord.Embed(description=f"**Filtered Link Patterns:**\n" + "\n".join(current), color=embedColor), ephemeral=False)
+
     # Word Filter Group
     word_group = app_commands.Group(name="wordfilter", description="Configure word filter")
 

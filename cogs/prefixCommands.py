@@ -564,7 +564,7 @@ class PrefixCommands(commands.Cog):
     @commands.group(invoke_without_command=True)
     @is_admin()
     async def linkfilter(self, ctx):
-        await ctx.send(f"Usage: {ctx.prefix}linkfilter enable/disable/whitelist_add/whitelist_remove/whitelist_list/regex_add/regex_remove")
+        await ctx.send(f"Usage: {ctx.prefix}linkfilter enable/disable/whitelist_add/whitelist_remove/whitelist_list/regex_add/regex_remove/list")
 
     @linkfilter.command(name="enable")
     @is_admin()
@@ -620,6 +620,15 @@ class PrefixCommands(commands.Cog):
             await ctx.send(embed=discord.Embed(description=f"Removed regex pattern: `{pattern}`", color=embedColor))
         else:
             await ctx.send(embed=discord.Embed(description="Pattern not found.", color=embedColor))
+
+    @linkfilter.command(name="list")
+    @is_admin()
+    async def link_list(self, ctx):
+        current = json.loads(await getConfig(ctx.guild.id, "linkRegexPatterns") or "[]")
+        if not current:
+            await ctx.send(embed=discord.Embed(description="No filtered link patterns.", color=embedColor))
+        else:
+            await ctx.send(embed=discord.Embed(description=f"**Filtered Link Patterns:**\n" + "\n".join(current), color=embedColor))
 
     # Word Filter Group
     @commands.group(invoke_without_command=True)
