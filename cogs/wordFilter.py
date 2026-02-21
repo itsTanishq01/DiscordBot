@@ -13,6 +13,9 @@ class WordFilter(commands.Cog):
         if message.author.bot or not message.guild or not message.content:
             return
 
+        if getattr(message.author, "guild_permissions", None) and message.author.guild_permissions.administrator:
+            return
+
         guildId = message.guild.id
 
         wordFilterEnabled = await getConfig(guildId, "wordFilterEnabled")

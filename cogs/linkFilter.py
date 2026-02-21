@@ -18,6 +18,9 @@ class LinkFilter(commands.Cog):
         if message.author.bot or not message.guild or not message.content:
             return
 
+        if getattr(message.author, "guild_permissions", None) and message.author.guild_permissions.administrator:
+            return
+
         guildId = message.guild.id
 
         linkFilterEnabled = await getConfig(guildId, "linkFilterEnabled")
