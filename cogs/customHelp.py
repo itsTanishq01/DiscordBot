@@ -80,7 +80,7 @@ class CustomHelp(commands.Cog):
             if cmd_list:
                 embed.add_field(name=cog_name, value=", ".join(cmd_list), inline=False)
                 
-        await interaction.response.send_message(embed=embed, ephemeral=True)
+        await interaction.response.send_message(embed=embed, ephemeral=False)
 
 async def setup(bot):
     await bot.add_cog(CustomHelp(bot))

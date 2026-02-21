@@ -84,35 +84,69 @@ class Utility(commands.Cog):
             
         await interaction.response.send_message(embed=embed, ephemeral=False)
 
-    @app_commands.command(name="exemptchannel", description="Exempt a channel from a filter")
-    @app_commands.describe(channel="Channel to exempt", rule="Filter rule (spam, link, word)")
-    @app_commands.choices(rule=[
-        app_commands.Choice(name="Spam Filter", value="spam"),
-        app_commands.Choice(name="Link Filter", value="link"),
-        app_commands.Choice(name="Word Filter", value="word")
-    ])
-    async def exemptchannel(self, interaction: discord.Interaction, channel: discord.TextChannel, rule: app_commands.Choice[str]):
+    @app_commands.command(name="exemptchannel", description="Exempt a channel from filters")
+    @app_commands.describe(
+        channel="Channel to exempt",
+        spam="Exempt from Spam Filter",
+        link="Exempt from Link Filter",
+        word="Exempt from Word Filter",
+        all_filters="Exempt from ALL Filters"
+    )
+    async def exemptchannel(self, interaction: discord.Interaction, channel: discord.TextChannel, spam: bool = False, link: bool = False, word: bool = False, all_filters: bool = False):
         if not await self.check_auth(interaction, "exemptchannel", interaction.user.guild_permissions.manage_channels): return
 
-        rule_val = rule.value if hasattr(rule, 'value') else str(rule)
-        rule_name = rule.name if hasattr(rule, 'name') else str(rule).capitalize() + " Filter"
-        await addExemptChannel(interaction.guild_id, rule_val, channel.id)
-        await interaction.response.send_message(f"✅ Channel {channel.mention} is now exempt from **{rule_name}**.", ephemeral=True)
+        if all_filters:
+            spam = link = word = True
+
+        rules_added = []
+        if spam:
+            await addExemptChannel(interaction.guild_id, "spam", channel.id)
+            rules_added.append("Spam Filter")
+        if link:
+            await addExemptChannel(interaction.guild_id, "link", channel.id)
+            rules_added.append("Link Filter")
+        if word:
+            await addExemptChannel(interaction.guild_id, "word", channel.id)
+            rules_added.append("Word Filter")
+
+        if not rules_added:
+            await interaction.response.send_message("Please specify at least one filter to exempt (spam, link, word, or all_filters).", ephemeral=False)
+            return
+
+        rule_names = ", ".join(rules_added)
+        await interaction.response.send_message(f"✅ Channel {channel.mention} is now exempt from: **{rule_names}**.", ephemeral=False)
 
     @app_commands.command(name="unexemptchannel", description="Remove exemption for a channel")
-    @app_commands.describe(channel="Channel to remove exemption", rule="Filter rule")
-    @app_commands.choices(rule=[
-        app_commands.Choice(name="Spam Filter", value="spam"),
-        app_commands.Choice(name="Link Filter", value="link"),
-        app_commands.Choice(name="Word Filter", value="word")
-    ])
-    async def unexemptchannel(self, interaction: discord.Interaction, channel: discord.TextChannel, rule: app_commands.Choice[str]):
+    @app_commands.describe(
+        channel="Channel to remove exemption",
+        spam="Remove from Spam Filter",
+        link="Remove from Link Filter",
+        word="Remove from Word Filter",
+        all_filters="Remove from ALL Filters"
+    )
+    async def unexemptchannel(self, interaction: discord.Interaction, channel: discord.TextChannel, spam: bool = False, link: bool = False, word: bool = False, all_filters: bool = False):
         if not await self.check_auth(interaction, "unexemptchannel", interaction.user.guild_permissions.manage_channels): return
 
-        rule_val = rule.value if hasattr(rule, 'value') else str(rule)
-        rule_name = rule.name if hasattr(rule, 'name') else str(rule).capitalize() + " Filter"
-        await removeExemptChannel(interaction.guild_id, rule_val, channel.id)
-        await interaction.response.send_message(f"🗑️ Removed **{rule_name}** exemption for {channel.mention}.", ephemeral=True)
+        if all_filters:
+            spam = link = word = True
+
+        rules_removed = []
+        if spam:
+            await removeExemptChannel(interaction.guild_id, "spam", channel.id)
+            rules_removed.append("Spam Filter")
+        if link:
+            await removeExemptChannel(interaction.guild_id, "link", channel.id)
+            rules_removed.append("Link Filter")
+        if word:
+            await removeExemptChannel(interaction.guild_id, "word", channel.id)
+            rules_removed.append("Word Filter")
+
+        if not rules_removed:
+            await interaction.response.send_message("Please specify at least one filter to unexempt (spam, link, word, or all_filters).", ephemeral=False)
+            return
+
+        rule_names = ", ".join(rules_removed)
+        await interaction.response.send_message(f"🗑️ Removed **{rule_names}** exemption for {channel.mention}.", ephemeral=False)
 
     @app_commands.command(name="listexemptions", description="List exempt channels for a rule")
     @app_commands.choices(rule=[
@@ -127,11 +161,11 @@ class Utility(commands.Cog):
         rule_name = rule.name if hasattr(rule, 'name') else str(rule).capitalize() + " Filter"
         channels = await getExemptChannels(interaction.guild_id, rule_val)
         if not channels:
-            await interaction.response.send_message(f"No channels are exempt from **{rule_name}**.", ephemeral=True)
+            await interaction.response.send_message(f"No channels are exempt from **{rule_name}**.", ephemeral=False)
             return
             
         mentions = [f"<#{cid}>" for cid in channels]
-        await interaction.response.send_message(f"Channels exempt from **{rule_name}**:\n" + ", ".join(mentions), ephemeral=True)
+        await interaction.response.send_message(f"Channels exempt from **{rule_name}**:\n" + ", ".join(mentions), ephemeral=False)
 
 async def setup(bot):
     await bot.add_cog(Utility(bot))

@@ -283,35 +283,89 @@ class SlashCommands(commands.Cog):
     # Exempt Group
     exempt_group = app_commands.Group(name="exempt", description="Manage role exemptions")
 
-    @exempt_group.command(name="add", description="Exempt role from filter")
-    @app_commands.choices(rule=[
-        app_commands.Choice(name="Spam", value="spam"),
-        app_commands.Choice(name="Attachment", value="attachment"),
-        app_commands.Choice(name="Mention", value="mention"),
-        app_commands.Choice(name="Message Limit", value="messageLimit"),
-        app_commands.Choice(name="Link", value="link"),
-        app_commands.Choice(name="Word", value="word"),
-    ])
-    async def exempt_add(self, interaction: discord.Interaction, rule: app_commands.Choice[str], role: discord.Role):
-        rule_val = rule.value if hasattr(rule, 'value') else str(rule)
-        rule_name = rule.name if hasattr(rule, 'name') else str(rule).capitalize()
-        await addExemptRole(interaction.guild_id, rule_val, str(role.id))
-        await interaction.response.send_message(f"Exempted {role.mention} from {rule_name} filter.", ephemeral=True)
+    @exempt_group.command(name="add", description="Exempt role from filters")
+    @app_commands.describe(
+        role="Role to exempt",
+        spam="Exempt from Spam Filter",
+        attachment="Exempt from Attachment Filter",
+        mention="Exempt from Mention Filter",
+        message_limit="Exempt from Message Limit",
+        link="Exempt from Link Filter",
+        word="Exempt from Word Filter",
+        all_filters="Exempt from ALL Filters"
+    )
+    async def exempt_add(self, interaction: discord.Interaction, role: discord.Role, spam: bool = False, attachment: bool = False, mention: bool = False, message_limit: bool = False, link: bool = False, word: bool = False, all_filters: bool = False):
+        if all_filters:
+            spam = attachment = mention = message_limit = link = word = True
 
-    @exempt_group.command(name="remove", description="Remove role exemption")
-    @app_commands.choices(rule=[
-        app_commands.Choice(name="Spam", value="spam"),
-        app_commands.Choice(name="Attachment", value="attachment"),
-        app_commands.Choice(name="Mention", value="mention"),
-        app_commands.Choice(name="Message Limit", value="messageLimit"),
-        app_commands.Choice(name="Link", value="link"),
-        app_commands.Choice(name="Word", value="word"),
-    ])
-    async def exempt_remove(self, interaction: discord.Interaction, rule: app_commands.Choice[str], role: discord.Role):
-        rule_val = rule.value if hasattr(rule, 'value') else str(rule)
-        rule_name = rule.name if hasattr(rule, 'name') else str(rule).capitalize()
-        await removeExemptRole(interaction.guild_id, rule_val, str(role.id))
-        await interaction.response.send_message(f"Removed exemption for {role.mention} from {rule_name} filter.", ephemeral=True)
+        rules_added = []
+        if spam:
+            await addExemptRole(interaction.guild_id, "spam", str(role.id))
+            rules_added.append("Spam")
+        if attachment:
+            await addExemptRole(interaction.guild_id, "attachment", str(role.id))
+            rules_added.append("Attachment")
+        if mention:
+            await addExemptRole(interaction.guild_id, "mention", str(role.id))
+            rules_added.append("Mention")
+        if message_limit:
+            await addExemptRole(interaction.guild_id, "messageLimit", str(role.id))
+            rules_added.append("Message Limit")
+        if link:
+            await addExemptRole(interaction.guild_id, "link", str(role.id))
+            rules_added.append("Link")
+        if word:
+            await addExemptRole(interaction.guild_id, "word", str(role.id))
+            rules_added.append("Word")
+
+        if not rules_added:
+            await interaction.response.send_message("Please specify at least one filter.", ephemeral=False)
+            return
+
+        rule_names = ", ".join(rules_added)
+        await interaction.response.send_message(f"Exempted {role.mention} from: **{rule_names}** filters.", ephemeral=False)
+
+    @exempt_group.command(name="remove", description="Remove role exemption from filters")
+    @app_commands.describe(
+        role="Role to remove exemption",
+        spam="Remove from Spam Filter",
+        attachment="Remove from Attachment Filter",
+        mention="Remove from Mention Filter",
+        message_limit="Remove from Message Limit",
+        link="Remove from Link Filter",
+        word="Remove from Word Filter",
+        all_filters="Remove from ALL Filters"
+    )
+    async def exempt_remove(self, interaction: discord.Interaction, role: discord.Role, spam: bool = False, attachment: bool = False, mention: bool = False, message_limit: bool = False, link: bool = False, word: bool = False, all_filters: bool = False):
+        if all_filters:
+            spam = attachment = mention = message_limit = link = word = True
+
+        rules_removed = []
+        if spam:
+            await removeExemptRole(interaction.guild_id, "spam", str(role.id))
+            rules_removed.append("Spam")
+        if attachment:
+            await removeExemptRole(interaction.guild_id, "attachment", str(role.id))
+            rules_removed.append("Attachment")
+        if mention:
+            await removeExemptRole(interaction.guild_id, "mention", str(role.id))
+            rules_removed.append("Mention")
+        if message_limit:
+            await removeExemptRole(interaction.guild_id, "messageLimit", str(role.id))
+            rules_removed.append("Message Limit")
+        if link:
+            await removeExemptRole(interaction.guild_id, "link", str(role.id))
+            rules_removed.append("Link")
+        if word:
+            await removeExemptRole(interaction.guild_id, "word", str(role.id))
+            rules_removed.append("Word")
+
+        if not rules_removed:
+            await interaction.response.send_message("Please specify at least one filter.", ephemeral=False)
+            return
+
+        rule_names = ", ".join(rules_removed)
+        await interaction.response.send_message(f"Removed exemption for {role.mention} from: **{rule_names}** filters.", ephemeral=False)
 
     @exempt_group.command(name="list", description="List exempt roles")
     @app_commands.choices(rule=[

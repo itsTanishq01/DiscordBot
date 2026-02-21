@@ -47,7 +47,7 @@ class Warnings(commands.Cog):
             except discord.Forbidden:
                 action_msg = "\n❌ Failed to auto-timeout (missing permissions)."
 
-        await interaction.response.send_message(f"{response_msg}{action_msg}", ephemeral=True)
+        await interaction.response.send_message(f"{response_msg}{action_msg}", ephemeral=False)
         
         try:
             await member.send(f"You were warned in **{interaction.guild.name}**.\nReason: {reason}\nYour total warnings: {count}")
@@ -70,7 +70,7 @@ class Warnings(commands.Cog):
         warnings = await getWarnings(interaction.guild_id, member.id)
         
         if not warnings:
-            await interaction.response.send_message(f"{member.mention} has no warnings.", ephemeral=True)
+            await interaction.response.send_message(f"{member.mention} has no warnings.", ephemeral=False)
             return
 
         embed = discord.Embed(title=f"Warnings for {member.display_name}", color=0xFFAA00)
@@ -81,14 +81,14 @@ class Warnings(commands.Cog):
             embed.add_field(name=f"{date} by {modName}", value=reason, inline=False)
         
         embed.set_footer(text=f"Total Warnings: {len(warnings)}")
-        await interaction.response.send_message(embed=embed, ephemeral=True)
+        await interaction.response.send_message(embed=embed, ephemeral=False)
 
     @app_commands.command(name="clearwarnings", description="Clear all warnings for a user")
     async def clearwarnings(self, interaction: discord.Interaction, member: discord.Member):
         if not await self.check_auth(interaction, "clearwarnings", interaction.user.guild_permissions.moderate_members): return
 
         await clearWarnings(interaction.guild_id, member.id)
-        await interaction.response.send_message(f"✅ Cleared all warnings for {member.mention}.", ephemeral=True)
+        await interaction.response.send_message(f"✅ Cleared all warnings for {member.mention}.", ephemeral=False)
         
         await sendModLog(
             self.bot, interaction.guild_id,
@@ -108,7 +108,7 @@ class Warnings(commands.Cog):
             return
 
         await setConfig(interaction.guild_id, "warnThreshold", str(amount))
-        await interaction.response.send_message(f"✅ Warning threshold set to **{amount}**. Users will be timed out on their {amount}th warning.", ephemeral=True)
+        await interaction.response.send_message(f"✅ Warning threshold set to **{amount}**. Users will be timed out on their {amount}th warning.", ephemeral=False)
 
 async def setup(bot):
     await bot.add_cog(Warnings(bot))

@@ -16,7 +16,7 @@ class Help(commands.Cog):
         embed.add_field(name="👥 Roles & Permissions", value="`/setroles admin @Role` - Set Admin Role\n`/setroles mod @Role` - Set Mod Role\n`/setperm <cmd> <role> allow/remove` - Override command perms\n`/listperms <cmd>` - See permissions", inline=False)
         
         embed.set_footer(text="Use /command for more details on specific parameters.")
-        await interaction.response.send_message(embed=embed, ephemeral=True)
+        await interaction.response.send_message(embed=embed, ephemeral=False)
 
 async def setup(bot):
     await bot.add_cog(Help(bot))
