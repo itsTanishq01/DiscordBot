@@ -73,14 +73,19 @@ async def on_ready():
         except Exception as e:
             print(f"FAILED to load extension {ext}: {e}")
     
-    # Sync commands to all guilds for instant update
+    # Sync commands globally and clear per-guild to avoid duplicates
+    try:
+        synced = await bot.tree.sync()
+        print(f"Synced {len(synced)} commands globally.")
+    except Exception as e:
+        print(f"Failed to sync global commands: {e}")
+
     for guild in bot.guilds:
         try:
-            bot.tree.copy_global_to(guild=guild)
+            bot.tree.clear_commands(guild=guild)
             await bot.tree.sync(guild=guild)
-            print(f"Synced commands to guild: {guild.name} ({guild.id})")
         except Exception as e:
-            print(f"Failed to sync to {guild.name}: {e}")
+            print(f"Failed to clear commands for {guild.name}: {e}")
 
     print(f"AbyssBot ready as {bot.user} in {len(bot.guilds)} guild(s)")
     if not update_status.is_running():
