@@ -65,20 +65,55 @@ class CustomHelp(commands.Cog):
         self.bot.help_command = self._original_help_command
 
     @app_commands.command(name="help", description="Show all bot slash commands")
-    async def slash_help(self, interaction: discord.Interaction):
-        embed = discord.Embed(title="🤖 Bot Slash Commands", description="Here are the available slash commands:", color=embedColor)
-        
-        commands_dict = {}
+    @app_commands.describe(command_name="Command to get help for (e.g. 'exempt list' or 'warn')")
+    async def slash_help(self, interaction: discord.Interaction, command_name: str = None):
+        if not command_name:
+            embed = discord.Embed(title="🤖 Bot Slash Commands", description="Here are the available slash commands. Use `/help <command>` for details.", color=embedColor)
+            
+            commands_dict = {}
+            for cmd in self.bot.tree.walk_commands():
+                if isinstance(cmd, app_commands.Command):
+                    cog_name = cmd.binding.__class__.__name__ if cmd.binding else "General"
+                    if cog_name not in commands_dict:
+                        commands_dict[cog_name] = []
+                    commands_dict[cog_name].append(f"`/{cmd.qualified_name}`")
+                    
+            for cog_name, cmd_list in commands_dict.items():
+                if cmd_list:
+                    embed.add_field(name=cog_name, value=", ".join(cmd_list), inline=False)
+                    
+            await interaction.response.send_message(embed=embed, ephemeral=False)
+            return
+
+        # Looking for a specific command
+        target = None
         for cmd in self.bot.tree.walk_commands():
-            if isinstance(cmd, app_commands.Command):
-                cog_name = cmd.binding.__class__.__name__ if cmd.binding else "General"
-                if cog_name not in commands_dict:
-                    commands_dict[cog_name] = []
-                commands_dict[cog_name].append(f"`/{cmd.qualified_name}`")
+            if cmd.qualified_name.lower() == command_name.lower().strip("/ "):
+                target = cmd
+                break
                 
-        for cog_name, cmd_list in commands_dict.items():
-            if cmd_list:
-                embed.add_field(name=cog_name, value=", ".join(cmd_list), inline=False)
+        if not target:
+            await interaction.response.send_message(f"❌ Command `{command_name}` not found.", ephemeral=False)
+            return
+
+        embed = discord.Embed(title=f"Command Help: /{target.qualified_name}", color=embedColor)
+        embed.description = target.description or "No description provided."
+        
+        if isinstance(target, app_commands.Group):
+            # It's a group, list subcommands
+            subcommands = [f"`/{c.qualified_name}` - {c.description}" for c in target.walk_commands() if isinstance(c, app_commands.Command)]
+            if subcommands:
+                 embed.add_field(name="Subcommands", value="\n".join(subcommands[:15]) + ("\n..." if len(subcommands)>15 else ""), inline=False)
+        elif isinstance(target, app_commands.Command):
+            # It's a specific command, list parameters
+            if target.parameters:
+                params_list = []
+                for p in target.parameters:
+                    req = "Required" if p.required else "Optional"
+                    params_list.append(f"• `{p.name}` ({req}): {p.description}")
+                embed.add_field(name="Parameters", value="\n".join(params_list), inline=False)
+            else:
+                embed.add_field(name="Parameters", value="None", inline=False)
                 
         await interaction.response.send_message(embed=embed, ephemeral=False)
 
