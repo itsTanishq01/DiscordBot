@@ -94,8 +94,10 @@ class Utility(commands.Cog):
     async def exemptchannel(self, interaction: discord.Interaction, channel: discord.TextChannel, rule: app_commands.Choice[str]):
         if not await self.check_auth(interaction, "exemptchannel", interaction.user.guild_permissions.manage_channels): return
 
-        await addExemptChannel(interaction.guild_id, rule.value, channel.id)
-        await interaction.response.send_message(f"✅ Channel {channel.mention} is now exempt from **{rule.name}**.", ephemeral=True)
+        rule_val = rule.value if hasattr(rule, 'value') else str(rule)
+        rule_name = rule.name if hasattr(rule, 'name') else str(rule).capitalize() + " Filter"
+        await addExemptChannel(interaction.guild_id, rule_val, channel.id)
+        await interaction.response.send_message(f"✅ Channel {channel.mention} is now exempt from **{rule_name}**.", ephemeral=True)
 
     @app_commands.command(name="unexemptchannel", description="Remove exemption for a channel")
     @app_commands.describe(channel="Channel to remove exemption", rule="Filter rule")
@@ -107,8 +109,10 @@ class Utility(commands.Cog):
     async def unexemptchannel(self, interaction: discord.Interaction, channel: discord.TextChannel, rule: app_commands.Choice[str]):
         if not await self.check_auth(interaction, "unexemptchannel", interaction.user.guild_permissions.manage_channels): return
 
-        await removeExemptChannel(interaction.guild_id, rule.value, channel.id)
-        await interaction.response.send_message(f"🗑️ Removed **{rule.name}** exemption for {channel.mention}.", ephemeral=True)
+        rule_val = rule.value if hasattr(rule, 'value') else str(rule)
+        rule_name = rule.name if hasattr(rule, 'name') else str(rule).capitalize() + " Filter"
+        await removeExemptChannel(interaction.guild_id, rule_val, channel.id)
+        await interaction.response.send_message(f"🗑️ Removed **{rule_name}** exemption for {channel.mention}.", ephemeral=True)
 
     @app_commands.command(name="listexemptions", description="List exempt channels for a rule")
     @app_commands.choices(rule=[
@@ -119,13 +123,15 @@ class Utility(commands.Cog):
     async def listexemptions(self, interaction: discord.Interaction, rule: app_commands.Choice[str]):
         if not await self.check_auth(interaction, "listexemptions", interaction.user.guild_permissions.manage_channels): return
 
-        channels = await getExemptChannels(interaction.guild_id, rule.value)
+        rule_val = rule.value if hasattr(rule, 'value') else str(rule)
+        rule_name = rule.name if hasattr(rule, 'name') else str(rule).capitalize() + " Filter"
+        channels = await getExemptChannels(interaction.guild_id, rule_val)
         if not channels:
-            await interaction.response.send_message(f"No channels are exempt from **{rule.name}**.", ephemeral=True)
+            await interaction.response.send_message(f"No channels are exempt from **{rule_name}**.", ephemeral=True)
             return
             
         mentions = [f"<#{cid}>" for cid in channels]
-        await interaction.response.send_message(f"Channels exempt from **{rule.name}**:\n" + ", ".join(mentions), ephemeral=True)
+        await interaction.response.send_message(f"Channels exempt from **{rule_name}**:\n" + ", ".join(mentions), ephemeral=True)
 
 async def setup(bot):
     await bot.add_cog(Utility(bot))

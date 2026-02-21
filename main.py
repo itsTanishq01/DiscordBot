@@ -53,18 +53,29 @@ cogExtensions = [
 
 @bot.event
 async def on_ready():
+    if getattr(bot, '__startup_done', False):
+        return
+    bot.__startup_done = True
+
     await asyncio.sleep(5)  # Allow network to stabilize on startup
     success = await initDb()
     if success:
         print("Database initialized successfully.")
     else:
         print("CRITICAL: Database connection failed. Bot features may be broken.")
-        # We continue just to let bot stay online, but skip initDefaults which would crash
         return
 
     for guild in bot.guilds:
         await initDefaults(guild.id)
         
+    # Fix duplicates by wiping global commands before extensions register them
+    try:
+        bot.tree.clear_commands(guild=None)
+        await bot.tree.sync()
+        print("Wiped global commands from Discord.")
+    except Exception as e:
+        print(f"Failed to wipe global commands: {e}")
+
     print(f"Loading {len(cogExtensions)} extensions...")
     for ext in cogExtensions:
         try:
@@ -73,16 +84,6 @@ async def on_ready():
         except Exception as e:
             print(f"FAILED to load extension {ext}: {e}")
     
-    # Fix duplicates by wiping global and only using per-guild sync
-    try:
-        cmds = bot.tree.get_commands()
-        bot.tree.clear_commands(guild=None)
-        await bot.tree.sync()
-        for cmd in cmds:
-            bot.tree.add_command(cmd)
-    except Exception as e:
-        print(f"Failed to wipe global commands: {e}")
-
     for guild in bot.guilds:
         try:
             bot.tree.copy_global_to(guild=guild)

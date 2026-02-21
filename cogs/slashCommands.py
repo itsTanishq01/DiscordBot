@@ -293,8 +293,10 @@ class SlashCommands(commands.Cog):
         app_commands.Choice(name="Word", value="word"),
     ])
     async def exempt_add(self, interaction: discord.Interaction, rule: app_commands.Choice[str], role: discord.Role):
-        await addExemptRole(interaction.guild_id, rule.value, str(role.id))
-        await interaction.response.send_message(f"Exempted {role.mention} from {rule.name} filter.", ephemeral=True)
+        rule_val = rule.value if hasattr(rule, 'value') else str(rule)
+        rule_name = rule.name if hasattr(rule, 'name') else str(rule).capitalize()
+        await addExemptRole(interaction.guild_id, rule_val, str(role.id))
+        await interaction.response.send_message(f"Exempted {role.mention} from {rule_name} filter.", ephemeral=True)
 
     @exempt_group.command(name="remove", description="Remove role exemption")
     @app_commands.choices(rule=[
@@ -306,8 +308,10 @@ class SlashCommands(commands.Cog):
         app_commands.Choice(name="Word", value="word"),
     ])
     async def exempt_remove(self, interaction: discord.Interaction, rule: app_commands.Choice[str], role: discord.Role):
-        await removeExemptRole(interaction.guild_id, rule.value, str(role.id))
-        await interaction.response.send_message(f"Removed exemption for {role.mention} from {rule.name} filter.", ephemeral=True)
+        rule_val = rule.value if hasattr(rule, 'value') else str(rule)
+        rule_name = rule.name if hasattr(rule, 'name') else str(rule).capitalize()
+        await removeExemptRole(interaction.guild_id, rule_val, str(role.id))
+        await interaction.response.send_message(f"Removed exemption for {role.mention} from {rule_name} filter.", ephemeral=True)
 
     @exempt_group.command(name="list", description="List exempt roles")
     @app_commands.choices(rule=[
@@ -319,12 +323,14 @@ class SlashCommands(commands.Cog):
         app_commands.Choice(name="Word", value="word"),
     ])
     async def exempt_list(self, interaction: discord.Interaction, rule: app_commands.Choice[str]):
-        roleIds = await getExemptRoles(interaction.guild_id, rule.value)
+        rule_val = rule.value if hasattr(rule, 'value') else str(rule)
+        rule_name = rule.name if hasattr(rule, 'name') else str(rule).capitalize()
+        roleIds = await getExemptRoles(interaction.guild_id, rule_val)
         if not roleIds:
-            await interaction.response.send_message(f"No exempt roles for {rule.name} filter.", ephemeral=True)
+            await interaction.response.send_message(f"No exempt roles for {rule_name} filter.", ephemeral=True)
         else:
             roles = [f"<@&{rid}>" for rid in roleIds]
-            await interaction.response.send_message(f"Exempt roles for {rule.name} filter:\n" + ", ".join(roles), ephemeral=True)
+            await interaction.response.send_message(f"Exempt roles for {rule_name} filter:\n" + ", ".join(roles), ephemeral=True)
 
 async def setup(bot):
     await bot.add_cog(SlashCommands(bot))
