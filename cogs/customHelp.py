@@ -1,5 +1,6 @@
 import discord
 from discord.ext import commands
+from discord import app_commands
 from config import embedColor
 
 class MyHelp(commands.HelpCommand):
@@ -45,7 +46,6 @@ class MyHelp(commands.HelpCommand):
         filtered = await self.filter_commands(cog.get_commands(), sort=True)
         if filtered:
             command_list = [f"`{c.name}`: {c.short_doc or 'No description'}" for c in filtered]
-            # Chunk if too long? For now simple join.
             embed.add_field(name="Commands", value=", ".join([f"`{c.name}`" for c in filtered]), inline=False)
             
         await self.get_destination().send(embed=embed)
@@ -63,6 +63,24 @@ class CustomHelp(commands.Cog):
 
     def cog_unload(self):
         self.bot.help_command = self._original_help_command
+
+    @app_commands.command(name="help", description="Show all bot slash commands")
+    async def slash_help(self, interaction: discord.Interaction):
+        embed = discord.Embed(title="🤖 Bot Slash Commands", description="Here are the available slash commands:", color=embedColor)
+        
+        commands_dict = {}
+        for cmd in self.bot.tree.walk_commands():
+            if isinstance(cmd, app_commands.Command):
+                cog_name = cmd.binding.__class__.__name__ if cmd.binding else "General"
+                if cog_name not in commands_dict:
+                    commands_dict[cog_name] = []
+                commands_dict[cog_name].append(f"`/{cmd.qualified_name}`")
+                
+        for cog_name, cmd_list in commands_dict.items():
+            if cmd_list:
+                embed.add_field(name=cog_name, value=", ".join(cmd_list), inline=False)
+                
+        await interaction.response.send_message(embed=embed, ephemeral=True)
 
 async def setup(bot):
     await bot.add_cog(CustomHelp(bot))
