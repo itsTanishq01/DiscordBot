@@ -84,13 +84,11 @@ async def on_ready():
         except Exception as e:
             print(f"FAILED to load extension {ext}: {e}")
     
-    for guild in bot.guilds:
-        try:
-            bot.tree.copy_global_to(guild=guild)
-            await bot.tree.sync(guild=guild)
-            print(f"Synced commands to guild: {guild.name} ({guild.id})")
-        except Exception as e:
-            print(f"Failed to sync to {guild.name}: {e}")
+    try:
+        synced = await bot.tree.sync()
+        print(f"Synced {len(synced)} commands globally!")
+    except Exception as e:
+        print(f"Failed to sync globally: {e}")
 
     print(f"AbyssBot ready as {bot.user} in {len(bot.guilds)} guild(s)")
     if not update_status.is_running():
@@ -98,12 +96,20 @@ async def on_ready():
 
 @bot.command()
 @commands.is_owner()
-async def sync(ctx):
-    """Syncs slash commands to the current guild."""
+async def sync(ctx, spec: str = None):
+    """Syncs slash commands. Usage: .sync [global/clear/guild]"""
     try:
-        bot.tree.copy_global_to(guild=ctx.guild)
-        synced = await bot.tree.sync(guild=ctx.guild)
-        await ctx.send(f"Synced {len(synced)} command(s) to this guild.")
+        if spec == "global":
+            synced = await bot.tree.sync()
+            await ctx.send(f"Synced {len(synced)} commands globally.")
+        elif spec == "clear":
+            bot.tree.clear_commands(guild=ctx.guild)
+            await bot.tree.sync(guild=ctx.guild)
+            await ctx.send("Cleared guild commands. Discord should now fall back to the global commands (might require restarting your client).")
+        else:
+            bot.tree.copy_global_to(guild=ctx.guild)
+            synced = await bot.tree.sync(guild=ctx.guild)
+            await ctx.send(f"Synced {len(synced)} command(s) to this guild.")
     except Exception as e:
         await ctx.send(f"Failed to sync: {e}")
 
