@@ -53,7 +53,7 @@ class Utility(commands.Cog):
     async def whois(self, interaction: discord.Interaction, member: discord.Member):
         # Fetch detailed info
         roles = [role.mention for role in member.roles if role != interaction.guild.default_role]
-        role_str = " ".join(roles) if roles else "None"
+        role_str = "\n".join(roles) if roles else "None"
         
         # Get Warnings Count
         from database import getWarnings
@@ -70,11 +70,11 @@ class Utility(commands.Cog):
         joined = member.joined_at.strftime("%Y-%m-%d %H:%M:%S")
         embed.add_field(name="Dates", value=f"**Created:** {created}\n**Joined:** {joined}", inline=False)
         
-        embed.add_field(name="Moderation", value=f"**Warnings:** {warn_count}", inline=True)
+        embed.add_field(name="Moderation", value=f"**Warnings:** {warn_count}", inline=False)
         
         if warnings:
-             last_warn_reason = warnings[-1][1] # (modId, reason, timestamp)
-             embed.add_field(name="Last Warning", value=last_warn_reason, inline=True)
+             mod_id, reason, timestamp = warnings[0] # taking index 0 since warnings are ORDER BY timestamp DESC
+             embed.add_field(name="Last Warning", value=f"Warning | Reason: {reason} - <@{mod_id}>", inline=False)
         
         if roles:
             embed.add_field(name=f"Roles [{len(roles)}]", value=role_str, inline=False)
