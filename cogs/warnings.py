@@ -30,14 +30,12 @@ class Warnings(commands.Cog):
         timestamp = time.time()
         await addWarning(interaction.guild_id, member.id, interaction.user.id, reason, timestamp)
         
-        # Check warning count
         warnings = await getWarnings(interaction.guild_id, member.id)
         count = len(warnings)
         
         response_msg = f"⚠️ Warned {member.mention}. They now have **{count}** warnings."
         action_msg = ""
 
-        # Auto-punish at threshold
         threshold = int(await getConfig(interaction.guild_id, "warnThreshold") or 3)
         if count >= threshold:
             try:
@@ -74,7 +72,7 @@ class Warnings(commands.Cog):
             return
 
         embed = discord.Embed(title=f"Warnings for {member.display_name}", color=0xFFAA00)
-        for modId, reason, ts in warnings[:10]: # Show last 10
+        for modId, reason, ts in warnings[:10]:
             mod = interaction.guild.get_member(int(modId))
             modName = mod.display_name if mod else "Unknown"
             date = datetime.datetime.fromtimestamp(ts).strftime("%Y-%m-%d %H:%M")

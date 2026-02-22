@@ -54,7 +54,6 @@ class Audit(commands.Cog):
         embed.timestamp = datetime.datetime.now()
         await channel.send(embed=embed)
 
-        # Basic Welcome Message (in same channel or system channel)
         sys_channel = member.guild.system_channel
         if sys_channel:
             await sys_channel.send(f"Welcome to the server, {member.mention}! 👋")

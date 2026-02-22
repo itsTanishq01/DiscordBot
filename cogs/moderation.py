@@ -46,7 +46,6 @@ class Moderation(commands.Cog):
             await interaction.response.send_message("You cannot kick this member due to role hierarchy.", ephemeral=True)
             return
             
-        # Check against Admin Role from Config
         from database import getConfig
         adminRoleId = await getConfig(interaction.guild_id, "adminRoleId")
         if adminRoleId:
@@ -83,7 +82,6 @@ class Moderation(commands.Cog):
             await interaction.response.send_message("You cannot ban this member due to role hierarchy.", ephemeral=True)
             return
 
-        # Check against Admin Role from Config
         from database import getConfig
         adminRoleId = await getConfig(interaction.guild_id, "adminRoleId")
         if adminRoleId:

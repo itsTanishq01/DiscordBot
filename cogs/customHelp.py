@@ -85,7 +85,6 @@ class CustomHelp(commands.Cog):
             await interaction.response.send_message(embed=embed, ephemeral=False)
             return
 
-        # Looking for a specific command
         target = None
         for cmd in self.bot.tree.walk_commands():
             if cmd.qualified_name.lower() == command_name.lower().strip("/ "):
@@ -100,12 +99,10 @@ class CustomHelp(commands.Cog):
         embed.description = target.description or "No description provided."
         
         if isinstance(target, app_commands.Group):
-            # It's a group, list subcommands
             subcommands = [f"`/{c.qualified_name}` - {c.description}" for c in target.walk_commands() if isinstance(c, app_commands.Command)]
             if subcommands:
                  embed.add_field(name="Subcommands", value="\n".join(subcommands[:15]) + ("\n..." if len(subcommands)>15 else ""), inline=False)
         elif isinstance(target, app_commands.Command):
-            # It's a specific command, list parameters
             if target.parameters:
                 params_list = []
                 for p in target.parameters:

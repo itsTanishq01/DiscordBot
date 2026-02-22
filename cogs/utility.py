@@ -19,7 +19,6 @@ class Utility(commands.Cog):
     async def lock(self, interaction: discord.Interaction):
         if not await self.check_auth(interaction, "lock", interaction.user.guild_permissions.manage_channels): return
 
-        # Overwrite @everyone send_messages=False
         await interaction.channel.set_permissions(interaction.guild.default_role, send_messages=False)
         await interaction.response.send_message("🔒 Channel locked.", ephemeral=True)
         await interaction.channel.send("🔒 This channel has been locked.")
@@ -28,7 +27,6 @@ class Utility(commands.Cog):
     async def unlock(self, interaction: discord.Interaction):
         if not await self.check_auth(interaction, "unlock", interaction.user.guild_permissions.manage_channels): return
 
-        # Overwrite @everyone send_messages=True
         await interaction.channel.set_permissions(interaction.guild.default_role, send_messages=True)
         await interaction.response.send_message("🔓 Channel unlocked.", ephemeral=True)
         await interaction.channel.send("🔓 This channel has been unlocked.")
@@ -51,16 +49,13 @@ class Utility(commands.Cog):
     @app_commands.command(name="whois", description="Get detailed info about a user (warnings, roles, etc.)")
     @app_commands.describe(member="Member to inspect")
     async def whois(self, interaction: discord.Interaction, member: discord.Member):
-        # Fetch detailed info
         roles = [role.mention for role in member.roles if role != interaction.guild.default_role]
         role_str = "\n".join(roles) if roles else "None"
         
-        # Get Warnings Count
         from database import getWarnings
         warnings = await getWarnings(interaction.guild_id, member.id)
         warn_count = len(warnings)
         
-        # Create Embed
         embed = discord.Embed(title=f"User Info: {member.display_name}", color=member.color)
         embed.set_thumbnail(url=member.display_avatar.url)
         

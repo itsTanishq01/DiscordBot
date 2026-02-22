@@ -15,16 +15,13 @@ async def initDb():
         return False
 
     try:
-        # Retry loop for connection
         for attempt in range(5):
             try:
-                # Create SSL context optimized for Windows/Supabase
                 ssl_ctx = ssl.create_default_context()
                 ssl_ctx.check_hostname = False
                 ssl_ctx.verify_mode = ssl.CERT_NONE
                 
                 print(f"Connecting to Database (Attempt {attempt+1}/5)...")
-                # statement_cache_size=0 is required for Supabase Transaction Pooler (port 6543)
                 pool = await asyncpg.create_pool(db_url, ssl=ssl_ctx, command_timeout=30, statement_cache_size=0)
                 print("Connected to Supabase/PostgreSQL!")
                 break # Success
@@ -45,9 +42,7 @@ async def initDb():
                 print(f"Retrying in {wait}s...")
                 await asyncio.sleep(wait)
 
-        # Create Tables if not exist
         async with pool.acquire() as conn:
-            # Config Table (Key-Value per Guild to mimic flexibility)
             await conn.execute("""
                 CREATE TABLE IF NOT EXISTS config (
                     guild_id TEXT,
@@ -57,7 +52,6 @@ async def initDb():
                 );
             """)
             
-            # Warnings Table
             await conn.execute("""
                 CREATE TABLE IF NOT EXISTS warnings (
                     id SERIAL PRIMARY KEY,
@@ -69,7 +63,6 @@ async def initDb():
                 );
             """)
 
-            # Permissions Table (Custom Command perms)
             await conn.execute("""
                 CREATE TABLE IF NOT EXISTS permissions (
                     guild_id TEXT,
@@ -79,7 +72,6 @@ async def initDb():
                 );
             """)
 
-            # Exemptions Table
             await conn.execute("""
                 CREATE TABLE IF NOT EXISTS exemptions (
                     guild_id TEXT,
@@ -89,7 +81,6 @@ async def initDb():
                 );
             """)
 
-            # Filters Table (Banned Words, whitelists, etc.)
             await conn.execute("""
                 CREATE TABLE IF NOT EXISTS filters (
                     guild_id TEXT,
@@ -99,7 +90,6 @@ async def initDb():
                 );
             """)
 
-            # Channel Exemptions Table
             await conn.execute("""
                 CREATE TABLE IF NOT EXISTS exempt_channels (
                     guild_id TEXT,
@@ -115,7 +105,6 @@ async def initDb():
         print(f"Failed to connect to Database: {e}")
         return False
 
-# --- Configuration ---
 async def getConfig(guildId, key):
     async with pool.acquire() as conn:
         val = await conn.fetchval("SELECT value FROM config WHERE guild_id = $1 AND key = $2", str(guildId), key)
@@ -148,7 +137,6 @@ async def initDefaults(guildId):
                 INSERT INTO config (guild_id, key, value) VALUES ($1, $2, $3) ON CONFLICT DO NOTHING
             """, updates)
 
-# --- Exemptions ---
 async def addExemptRole(guildId, ruleType, roleId):
     async with pool.acquire() as conn:
         await conn.execute("""
@@ -202,7 +190,6 @@ async def isChannelExempt(guildId, ruleType, channelId):
     exemptChannels = await getExemptChannels(guildId, ruleType)
     return str(channelId) in exemptChannels
 
-# --- Filters (Words, Domains) ---
 async def addBannedWord(guildId, word):
     async with pool.acquire() as conn:
         await conn.execute("INSERT INTO filters (guild_id, type, item) VALUES ($1, 'banned_word', $2) ON CONFLICT DO NOTHING", str(guildId), word.lower())
@@ -229,7 +216,6 @@ async def getWhitelistDomains(guildId):
         rows = await conn.fetch("SELECT item FROM filters WHERE guild_id = $1 AND type = 'whitelist_domain'", str(guildId))
         return [row['item'] for row in rows]
 
-# --- Warnings ---
 async def addWarning(guildId, userId, moderatorId, reason, timestamp):
     async with pool.acquire() as conn:
         await conn.execute("""
@@ -250,7 +236,6 @@ async def clearWarnings(guildId, userId):
     async with pool.acquire() as conn:
         await conn.execute("DELETE FROM warnings WHERE guild_id = $1 AND user_id = $2", str(guildId), str(userId))
 
-# --- Command Permissions ---
 async def addCommandPerm(guildId, command, roleId):
     async with pool.acquire() as conn:
         await conn.execute("INSERT INTO permissions (guild_id, command, role_id) VALUES ($1, $2, $3) ON CONFLICT DO NOTHING", str(guildId), command, str(roleId))

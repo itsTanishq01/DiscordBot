@@ -49,7 +49,6 @@ class PrefixCommands(commands.Cog):
     async def check_auth(self, ctx, command: str, native_perm: bool) -> bool:
         if native_perm:
             return True
-        # Check if user has explicit permission via DB
         if await hasCommandPerm(ctx.guild.id, command, ctx.author.roles):
             return True
         await ctx.send("You do not have permission to use this command.")
@@ -78,7 +77,6 @@ class PrefixCommands(commands.Cog):
     def bool_converter(self, arg):
         return arg.lower() in ("yes", "y", "true", "t", "1", "enable", "on")
 
-    # --- MODERATION COMMANDS ---
 
     @commands.command(name="kick")
     async def kick(self, ctx, member: discord.Member, *, reason: str = "No reason provided"):
@@ -88,7 +86,6 @@ class PrefixCommands(commands.Cog):
              await ctx.send("You cannot kick this member due to role hierarchy.")
              return
 
-        # Check against Admin Role from Config
         from database import getConfig
         adminRoleId = await getConfig(ctx.guild.id, "adminRoleId")
         if adminRoleId:
@@ -112,15 +109,12 @@ class PrefixCommands(commands.Cog):
 
     @commands.command(name="ban")
     async def ban(self, ctx, member: discord.Member, delete_days: int = 0, *, reason: str = "No reason provided"):
-        # Note: parsing args like this is tricky if delete_days is optional in middle. 
-        # Easier to force order: !ban @User 0 Reason
         if not await self.check_auth(ctx, "ban", ctx.author.guild_permissions.ban_members): return
 
         if member.top_role >= ctx.author.top_role and ctx.author.id != ctx.guild.owner_id:
              await ctx.send("You cannot ban this member due to role hierarchy.")
              return
              
-        # Check against Admin Role from Config
         from database import getConfig
         adminRoleId = await getConfig(ctx.guild.id, "adminRoleId")
         if adminRoleId:
@@ -197,7 +191,6 @@ class PrefixCommands(commands.Cog):
 
 
 
-    # --- WARNING COMMANDS ---
 
     @commands.command(name="warn")
     async def warn(self, ctx, member: discord.Member, *, reason: str = "No reason provided"):
@@ -210,7 +203,6 @@ class PrefixCommands(commands.Cog):
            await member.send(f"⚠️ You were warned in **{ctx.guild.name}**. Reason: {reason}")
         except: pass
         
-        # Check warnings count for auto-punish
         warnings = await getWarnings(ctx.guild.id, member.id)
         count = len(warnings)
         
@@ -252,13 +244,11 @@ class PrefixCommands(commands.Cog):
         await sendModLog(self.bot, ctx.guild.id, user=member, channel=ctx.channel, rule="Clear Warnings", messageContent=f"Moderator: {ctx.author.mention}")
 
 
-    # --- UTILITY COMMANDS ---
 
     @commands.command(name="lock")
     async def lock(self, ctx):
         if not await self.check_auth(ctx, "lock", ctx.author.guild_permissions.manage_channels): return
         
-        # Try to overwrite send_messages for @everyone
         await ctx.channel.set_permissions(ctx.guild.default_role, send_messages=False)
         await ctx.send("🔒 Channel locked.")
 
@@ -290,7 +280,6 @@ class PrefixCommands(commands.Cog):
         roles = [role.mention for role in member.roles if role != ctx.guild.default_role]
         roles_str = ", ".join(roles) if roles else "None"
         
-        # Get Warnings
         from database import getWarnings
         warnings = await getWarnings(ctx.guild.id, member.id)
         warn_count = len(warnings)
@@ -318,7 +307,6 @@ class PrefixCommands(commands.Cog):
         await ctx.send(embed=embed)
 
 
-    # --- ROLE & PERMISSION COMMANDS ---
 
     @commands.command(name="setroles")
     @is_admin()
@@ -358,7 +346,6 @@ class PrefixCommands(commands.Cog):
             await ctx.send(f"Roles allowed to use `{command}`:\n" + ", ".join(roles))
 
 
-    # --- CONFIGURATION COMMANDS (Existing) ---
 
     @commands.group(invoke_without_command=True)
     @is_admin()
@@ -413,7 +400,6 @@ class PrefixCommands(commands.Cog):
         await setConfig(ctx.guild.id, "prefix", new_prefix)
         await ctx.send(embed=discord.Embed(description=f"Prefix set to `{new_prefix}`", color=embedColor))
 
-    # Spam Group
     @commands.group(invoke_without_command=True)
     @is_admin()
     async def spam(self, ctx):
@@ -438,7 +424,6 @@ class PrefixCommands(commands.Cog):
         await setConfig(ctx.guild.id, "spamTimeWindow", str(time_window))
         await ctx.send(embed=discord.Embed(description=f"Spam thresholds set: {max_messages} msgs per {time_window}s", color=embedColor))
 
-    # Attachment Group
     @commands.group(invoke_without_command=True)
     @is_admin()
     async def attachment(self, ctx):
@@ -486,7 +471,6 @@ class PrefixCommands(commands.Cog):
         else:
             await ctx.send(embed=discord.Embed(description=f".{ft} was not blocked.", color=embedColor))
 
-    # Mention Group
     @commands.group(invoke_without_command=True)
     @is_admin()
     async def mention(self, ctx):
@@ -524,7 +508,6 @@ class PrefixCommands(commands.Cog):
         await setConfig(ctx.guild.id, "blockHere", val)
         await ctx.send(embed=discord.Embed(description=f"Block @here: {val=='1'}", color=embedColor))
 
-    # Message Limit Group
     @commands.group(invoke_without_command=True)
     @is_admin()
     async def msglimit(self, ctx):
@@ -560,7 +543,6 @@ class PrefixCommands(commands.Cog):
         await setConfig(ctx.guild.id, "maxCharacters", str(count))
         await ctx.send(embed=discord.Embed(description=f"Max characters set to {count}", color=embedColor))
 
-    # Link Filter Group
     @commands.group(invoke_without_command=True)
     @is_admin()
     async def linkfilter(self, ctx):
@@ -630,7 +612,6 @@ class PrefixCommands(commands.Cog):
         else:
             await ctx.send(embed=discord.Embed(description=f"**Filtered Link Patterns:**\n" + "\n".join(current), color=embedColor))
 
-    # Word Filter Group
     @commands.group(invoke_without_command=True)
     @is_admin()
     async def wordfilter(self, ctx):
@@ -683,7 +664,6 @@ class PrefixCommands(commands.Cog):
         await setConfig(ctx.guild.id, "wordFilterRegex", val)
         await ctx.send(embed=discord.Embed(description=f"Regex matching: {val=='1'}", color=embedColor))
 
-    # Exempt Group
     @commands.group(invoke_without_command=True)
     @is_admin()
     async def exempt(self, ctx):

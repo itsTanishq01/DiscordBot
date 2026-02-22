@@ -17,7 +17,6 @@ async def sendModLog(bot, guildId, user, channel, rule, messageContent=None, att
         embed.add_field(name="Channel", value=f"{channel.mention} (`{channel.id}`)", inline=True)
         
         if messageContent:
-            # Truncate if too long
             content = (messageContent[:1000] + '...') if len(messageContent) > 1000 else messageContent
             embed.add_field(name="Content", value=content, inline=False)
             

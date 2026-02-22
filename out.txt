@@ -1,0 +1,50 @@
+Bot ready
+Loaded cogs.spamFilter
+Loaded cogs.attachmentFilter
+Loaded cogs.mentionFilter
+Loaded cogs.messageLimitFilter
+Loaded cogs.linkFilter
+Loaded cogs.wordFilter
+Loaded cogs.slashCommands
+Loaded cogs.prefixCommands
+Loaded cogs.moderation
+Loaded cogs.warnings
+Loaded cogs.audit
+Loaded cogs.utility
+Loaded cogs.permissions
+Loaded cogs.customHelp
+Failed to load cogs.help Extension 'cogs.help' raised an error: CommandAlreadyRegistered: Command 'help' already registered.
+Synced successfully: 32
+Commands are:
+ - ping
+ - config
+ - modlog
+ - prefix
+ - spam
+ - attachment
+ - mention
+ - msglimit
+ - linkfilter
+ - wordfilter
+ - exempt
+ - kick
+ - ban
+ - unban
+ - mute
+ - unmute
+ - purge
+ - warn
+ - warnings
+ - clearwarnings
+ - setthreshold
+ - lock
+ - unlock
+ - slowmode
+ - whois
+ - exemptchannel
+ - unexemptchannel
+ - listexemptions
+ - setroles
+ - setperm
+ - listperms
+ - help

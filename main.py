@@ -15,7 +15,6 @@ async def getPrefix(bot, message):
             prefix = await getConfig(message.guild.id, "prefix")
             return prefix if prefix else defaultPrefix
     except AttributeError:
-        # DB pool might be None during startup
         pass
     except Exception as e:
         print(f"Error fetching prefix: {e}")
@@ -57,7 +56,7 @@ async def on_ready():
         return
     bot.__startup_done = True
 
-    await asyncio.sleep(5)  # Allow network to stabilize on startup
+    await asyncio.sleep(5)
     success = await initDb()
     if success:
         print("Database initialized successfully.")
@@ -68,7 +67,6 @@ async def on_ready():
     for guild in bot.guilds:
         await initDefaults(guild.id)
         
-    # Fix duplicates by wiping global commands before extensions register them
     try:
         bot.tree.clear_commands(guild=None)
         await bot.tree.sync()

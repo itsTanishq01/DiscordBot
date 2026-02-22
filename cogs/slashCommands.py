@@ -32,10 +32,8 @@ class SlashCommands(commands.Cog):
         
         embed = discord.Embed(title="Current Configuration", color=embedColor)
         
-        # General Settings
         embed.add_field(name="General", value=f"Prefix: `{config.get('prefix', '.')}`\nModLog: <#{config.get('modLogChannel', 'None')}>", inline=False)
         
-        # Filter Statuses
         spam = "✅" if config.get("spamEnabled") == "1" else "❌"
         attach = "✅" if config.get("attachmentEnabled") == "1" else "❌"
         mention = "✅" if config.get("mentionEnabled") == "1" else "❌"
@@ -45,7 +43,6 @@ class SlashCommands(commands.Cog):
         
         embed.add_field(name="Filter Status", value=f"Spam: {spam}\nAttachment: {attach}\nMention: {mention}\nMsg Limit: {msg}\nLink: {link}\nWord: {word}", inline=False)
         
-        # Detailed Config
         embed.add_field(name="Spam", value=f"Max: {config.get('spamMaxMessages')}\nWindow: {config.get('spamTimeWindow')}s", inline=True)
         embed.add_field(name="Attachment", value=f"Max: {config.get('maxAttachments')}\nBlocked: {len(json.loads(config.get('blockedFileTypes', '[]')))} types", inline=True)
         embed.add_field(name="Mention", value=f"Max: {config.get('maxMentions')}\nBlock @everyone: {config.get('blockEveryone')}\nBlock @here: {config.get('blockHere')}", inline=True)
@@ -65,7 +62,6 @@ class SlashCommands(commands.Cog):
         await setConfig(interaction.guild_id, "prefix", prefix)
         await interaction.response.send_message(f"Prefix set to `{prefix}`", ephemeral=True)
 
-    # Spam Group
     spam_group = app_commands.Group(name="spam", description="Configure spam filter")
 
     @spam_group.command(name="enable", description="Enable spam filter")
@@ -84,7 +80,6 @@ class SlashCommands(commands.Cog):
         await setConfig(interaction.guild_id, "spamTimeWindow", str(time_window))
         await interaction.response.send_message(f"Spam thresholds set: {max_messages} msgs per {time_window}s", ephemeral=True)
 
-    # Attachment Group
     attach_group = app_commands.Group(name="attachment", description="Configure attachment filter")
 
     @attach_group.command(name="enable", description="Enable attachment filter")
@@ -124,7 +119,6 @@ class SlashCommands(commands.Cog):
         else:
             await interaction.response.send_message(f".{ft} was not blocked.", ephemeral=True)
 
-    # Mention Group
     mention_group = app_commands.Group(name="mention", description="Configure mention filter")
 
     @mention_group.command(name="enable", description="Enable mention filter")
@@ -152,7 +146,6 @@ class SlashCommands(commands.Cog):
         await setConfig(interaction.guild_id, "blockHere", "1" if enabled else "0")
         await interaction.response.send_message(f"Block @here: {enabled}", ephemeral=True)
 
-    # Message Limit Group
     msglimit_group = app_commands.Group(name="msglimit", description="Configure message limits")
 
     @msglimit_group.command(name="enable", description="Enable message limits")
@@ -180,7 +173,6 @@ class SlashCommands(commands.Cog):
         await setConfig(interaction.guild_id, "maxCharacters", str(count))
         await interaction.response.send_message(f"Max characters set to {count}", ephemeral=True)
 
-    # Link Filter Group
     link_group = app_commands.Group(name="linkfilter", description="Configure link filter")
 
     @link_group.command(name="enable", description="Enable link filter")
@@ -239,7 +231,6 @@ class SlashCommands(commands.Cog):
         else:
             await interaction.response.send_message(embed=discord.Embed(description=f"**Filtered Link Patterns:**\n" + "\n".join(current), color=embedColor), ephemeral=False)
 
-    # Word Filter Group
     word_group = app_commands.Group(name="wordfilter", description="Configure word filter")
 
     @word_group.command(name="enable", description="Enable word filter")
@@ -280,7 +271,6 @@ class SlashCommands(commands.Cog):
         await setConfig(interaction.guild_id, "wordFilterRegex", "1" if enabled else "0")
         await interaction.response.send_message(f"Regex matching: {enabled}", ephemeral=True)
 
-    # Exempt Group
     exempt_group = app_commands.Group(name="exempt", description="Manage role exemptions")
 
     @exempt_group.command(name="add", description="Exempt role from filters")
