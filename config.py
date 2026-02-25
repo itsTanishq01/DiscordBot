@@ -32,4 +32,10 @@ defaultConfig = {
     "wordFilterRegex": "0",
     "modLogChannel": "",
     "prefix": ".",
+    "activeProject": "",
+    "sdlcNotifyChannel": "",
+    "taskStaleThreshold": "7",
+    "workloadMaxTasks": "10",
+    "wipLimit": "5",
 }
+

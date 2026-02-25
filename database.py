@@ -709,3 +709,45 @@ async def getAuditLog(guildId, entityType=None, entityId=None, limit=50):
         rows = await conn.fetch(query, *params)
         return [dict(row) for row in rows]
 
+# ─────────────────────────────────────────────
+# Helper / Convenience Functions
+# ─────────────────────────────────────────────
+
+async def getActiveProject(guildId):
+    projectId = await getConfig(guildId, "activeProject")
+    if not projectId:
+        return None
+    return await getProject(int(projectId))
+
+async def setActiveProject(guildId, projectId):
+    await setConfig(guildId, "activeProject", str(projectId))
+
+async def getTaskCounts(guildId, projectId):
+    async with pool.acquire() as conn:
+        rows = await conn.fetch("""
+            SELECT status, COUNT(*) as count FROM tasks
+            WHERE guild_id = $1 AND project_id = $2
+            GROUP BY status
+        """, str(guildId), int(projectId))
+        return {row['status']: row['count'] for row in rows}
+
+async def getBugCounts(guildId, projectId):
+    async with pool.acquire() as conn:
+        rows = await conn.fetch("""
+            SELECT severity, COUNT(*) as count FROM bugs
+            WHERE guild_id = $1 AND project_id = $2 AND status != 'closed'
+            GROUP BY severity
+        """, str(guildId), int(projectId))
+        return {row['severity']: row['count'] for row in rows}
+
+async def getUserWorkload(guildId, userId):
+    async with pool.acquire() as conn:
+        taskCount = await conn.fetchval("""
+            SELECT COUNT(*) FROM tasks
+            WHERE guild_id = $1 AND assignee_id = $2 AND status NOT IN ('done', 'backlog')
+        """, str(guildId), str(userId))
+        bugCount = await conn.fetchval("""
+            SELECT COUNT(*) FROM bugs
+            WHERE guild_id = $1 AND assignee_id = $2 AND status NOT IN ('closed')
+        """, str(guildId), str(userId))
+        return {'tasks': taskCount or 0, 'bugs': bugCount or 0}
