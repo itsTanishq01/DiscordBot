@@ -46,9 +46,9 @@ class Projects(commands.Cog):
 
         for proj_name in names:
             try:
-                pid = await createProject(interaction.guild_id, proj_name, description if len(names) == 1 else "", now)
-                created.append((pid, proj_name))
-                await logAudit(interaction.guild_id, "create", "project", pid, str(interaction.user.id), f"Created project: {proj_name}", now)
+                seq = await createProject(interaction.guild_id, proj_name, description if len(names) == 1 else "", now)
+                created.append((seq, proj_name))
+                await logAudit(interaction.guild_id, "create", "project", seq, str(interaction.user.id), f"Created project: {proj_name}", now)
             except Exception as e:
                 if "unique" in str(e).lower() or "duplicate" in str(e).lower():
                     errors.append(f"⚠ `{proj_name}` already exists")
@@ -58,22 +58,22 @@ class Projects(commands.Cog):
         embed = discord.Embed(color=embedColor)
 
         if len(created) == 1:
-            pid, pname = created[0]
+            seq, pname = created[0]
             embed.title = "✅ Project Created"
-            embed.description = f"**{pname}** (ID: `{pid}`)"
+            embed.description = f"**{pname}** (ID: `#{seq}`)"
             if description:
                 embed.add_field(name="Description", value=description, inline=False)
             active = await getActiveProject(interaction.guild_id)
             if not active:
-                await setActiveProject(interaction.guild_id, pid)
+                await setActiveProject(interaction.guild_id, seq)
                 embed.set_footer(text="Auto-set as active project")
         elif created:
             embed.title = f"✅ {len(created)} Projects Created"
-            embed.description = "\n".join([f"• **{pname}** (ID: `{pid}`)" for pid, pname in created])
+            embed.description = "\n".join([f"• **{pname}** (ID: `#{seq}`)" for seq, pname in created])
             active = await getActiveProject(interaction.guild_id)
             if not active and created:
-                first_pid, first_name = created[0]
-                await setActiveProject(interaction.guild_id, first_pid)
+                first_seq, first_name = created[0]
+                await setActiveProject(interaction.guild_id, first_seq)
                 embed.set_footer(text=f"Auto-set '{first_name}' as active project")
 
         if errors:
@@ -90,7 +90,7 @@ class Projects(commands.Cog):
         await interaction.response.defer(ephemeral=False)
         projects = await getProjects(interaction.guild_id)
         active = await getActiveProject(interaction.guild_id)
-        active_id = active['id'] if active else None
+        active_seq = active['guild_seq'] if active else None
 
         if not projects:
             await interaction.followup.send("No projects yet. Create one with `/project new`.", ephemeral=True)
@@ -99,9 +99,9 @@ class Projects(commands.Cog):
         embed = discord.Embed(title="📋 Projects", color=embedColor)
         lines = []
         for p in projects:
-            marker = " ← **active**" if p['id'] == active_id else ""
+            marker = " ← **active**" if p['guild_seq'] == active_seq else ""
             desc = f" — {p['description']}" if p['description'] else ""
-            lines.append(f"`#{p['id']}` **{p['name']}**{desc}{marker}")
+            lines.append(f"`#{p['guild_seq']}` **{p['name']}**{desc}{marker}")
         embed.description = "\n".join(lines)
         await interaction.followup.send(embed=embed)
 
@@ -109,36 +109,36 @@ class Projects(commands.Cog):
     @app_commands.describe(project_id="Project ID to make active")
     async def project_set(self, interaction: discord.Interaction, project_id: int):
         await interaction.response.defer(ephemeral=False)
-        project = await getProject(project_id)
-        if not project or str(project['guild_id']) != str(interaction.guild_id):
+        project = await getProject(interaction.guild_id, project_id)
+        if not project:
             await interaction.followup.send("❌ Project not found.", ephemeral=True)
             return
         await setActiveProject(interaction.guild_id, project_id)
         await interaction.followup.send(f"✅ Active project set to **{project['name']}** (`#{project_id}`).")
 
-    @project_group.command(name="delete", description="Delete a project (cascades tasks, bugs, sprints)")
+    @project_group.command(name="delete", description="Delete a project (cascades tasks, bugs)")
     @app_commands.describe(project_id="Project ID to delete")
     async def project_delete(self, interaction: discord.Interaction, project_id: int):
         await interaction.response.defer(ephemeral=False)
         if not await requireRole(interaction, await getGroupRoles(interaction.guild_id, 'projects')):
             return
 
-        project = await getProject(project_id)
-        if not project or str(project['guild_id']) != str(interaction.guild_id):
+        project = await getProject(interaction.guild_id, project_id)
+        if not project:
             await interaction.followup.send("❌ Project not found.", ephemeral=True)
             return
 
         pname = project['name']
-        await deleteProject(project_id)
+        await deleteProject(interaction.guild_id, project_id)
         await logAudit(interaction.guild_id, "delete", "project", project_id, str(interaction.user.id), f"Deleted project: {pname}", int(time.time()))
 
         active = await getActiveProject(interaction.guild_id)
         footer = ""
-        if active and active['id'] == project_id:
+        if active and active['guild_seq'] == project_id:
             await setActiveProject(interaction.guild_id, "")
             footer = " Active project cleared."
 
-        await interaction.followup.send(f"🗑️ Deleted project **{pname}** and all related tasks/bugs/sprints.{footer}")
+        await interaction.followup.send(f"🗑️ Deleted project **{pname}** and all related tasks/bugs.{footer}")
 
 
 async def setup(bot):

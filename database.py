@@ -105,10 +105,12 @@ async def initDb():
                 CREATE TABLE IF NOT EXISTS projects (
                     id SERIAL PRIMARY KEY,
                     guild_id TEXT NOT NULL,
+                    guild_seq INTEGER NOT NULL,
                     name TEXT NOT NULL,
                     description TEXT DEFAULT '',
                     created_at BIGINT NOT NULL,
-                    UNIQUE(guild_id, name)
+                    UNIQUE(guild_id, name),
+                    UNIQUE(guild_id, guild_seq)
                 );
             """)
 
@@ -129,8 +131,8 @@ async def initDb():
                 CREATE TABLE IF NOT EXISTS tasks (
                     id SERIAL PRIMARY KEY,
                     guild_id TEXT NOT NULL,
+                    guild_seq INTEGER NOT NULL,
                     project_id INTEGER REFERENCES projects(id) ON DELETE CASCADE,
-                    sprint_id INTEGER REFERENCES sprints(id) ON DELETE SET NULL,
                     title TEXT NOT NULL,
                     description TEXT DEFAULT '',
                     status TEXT DEFAULT 'backlog',
@@ -138,7 +140,8 @@ async def initDb():
                     assignee_id TEXT,
                     creator_id TEXT NOT NULL,
                     created_at BIGINT NOT NULL,
-                    updated_at BIGINT NOT NULL
+                    updated_at BIGINT NOT NULL,
+                    UNIQUE(guild_id, guild_seq)
                 );
             """)
 
@@ -146,6 +149,7 @@ async def initDb():
                 CREATE TABLE IF NOT EXISTS bugs (
                     id SERIAL PRIMARY KEY,
                     guild_id TEXT NOT NULL,
+                    guild_seq INTEGER NOT NULL,
                     project_id INTEGER REFERENCES projects(id) ON DELETE CASCADE,
                     title TEXT NOT NULL,
                     description TEXT DEFAULT '',
@@ -155,7 +159,8 @@ async def initDb():
                     reporter_id TEXT NOT NULL,
                     tags TEXT DEFAULT '[]',
                     created_at BIGINT NOT NULL,
-                    updated_at BIGINT NOT NULL
+                    updated_at BIGINT NOT NULL,
+                    UNIQUE(guild_id, guild_seq)
                 );
             """)
 
@@ -172,11 +177,13 @@ async def initDb():
                 CREATE TABLE IF NOT EXISTS checklists (
                     id SERIAL PRIMARY KEY,
                     guild_id TEXT NOT NULL,
+                    guild_seq INTEGER NOT NULL,
                     task_id INTEGER REFERENCES tasks(id) ON DELETE SET NULL,
                     name TEXT NOT NULL,
                     created_by TEXT NOT NULL,
                     archived BOOLEAN DEFAULT FALSE,
-                    created_at BIGINT NOT NULL
+                    created_at BIGINT NOT NULL,
+                    UNIQUE(guild_id, guild_seq)
                 );
             """)
 
@@ -221,6 +228,77 @@ async def initDb():
                     created_at BIGINT NOT NULL
                 );
             """)
+
+            await conn.execute("""
+                CREATE TABLE IF NOT EXISTS guild_counters (
+                    guild_id TEXT NOT NULL,
+                    entity_type TEXT NOT NULL,
+                    next_seq INTEGER NOT NULL DEFAULT 1,
+                    PRIMARY KEY (guild_id, entity_type)
+                );
+            """)
+
+            # ── Migrations: add guild_seq to existing tables ──
+            for table in ['projects', 'tasks', 'bugs', 'checklists']:
+                col_exists = await conn.fetchval("""
+                    SELECT EXISTS (
+                        SELECT 1 FROM information_schema.columns
+                        WHERE table_name = $1 AND column_name = 'guild_seq'
+                    )
+                """, table)
+                if not col_exists:
+                    print(f"[Migration] Adding guild_seq to {table}...")
+                    await conn.execute(f"ALTER TABLE {table} ADD COLUMN guild_seq INTEGER")
+
+                    # Backfill: assign per-guild sequential IDs to existing rows
+                    rows = await conn.fetch(f"""
+                        SELECT id, guild_id FROM {table} ORDER BY guild_id, id
+                    """)
+                    guild_counters = {}
+                    for row in rows:
+                        gid = row['guild_id']
+                        guild_counters[gid] = guild_counters.get(gid, 0) + 1
+                        await conn.execute(f"UPDATE {table} SET guild_seq = $1 WHERE id = $2",
+                                           guild_counters[gid], row['id'])
+
+                    # Set NOT NULL after backfill
+                    await conn.execute(f"ALTER TABLE {table} ALTER COLUMN guild_seq SET NOT NULL")
+
+                    # Add UNIQUE constraint
+                    try:
+                        await conn.execute(f"""
+                            ALTER TABLE {table} ADD CONSTRAINT {table}_guild_seq_unique
+                            UNIQUE (guild_id, guild_seq)
+                        """)
+                    except Exception:
+                        pass  # constraint may already exist
+
+                    # Seed counters
+                    entity_type = table.rstrip('s')  # projects -> project, tasks -> task, etc.
+                    for gid, count in guild_counters.items():
+                        await conn.execute("""
+                            INSERT INTO guild_counters (guild_id, entity_type, next_seq)
+                            VALUES ($1, $2, $3)
+                            ON CONFLICT (guild_id, entity_type)
+                            DO UPDATE SET next_seq = GREATEST(guild_counters.next_seq, $3)
+                        """, gid, entity_type, count)
+
+                    print(f"[Migration] {table}: migrated {len(rows)} rows across {len(guild_counters)} guilds")
+
+            # Remove sprint_id from tasks if it exists (sprints removed)
+            sprint_col = await conn.fetchval("""
+                SELECT EXISTS (
+                    SELECT 1 FROM information_schema.columns
+                    WHERE table_name = 'tasks' AND column_name = 'sprint_id'
+                )
+            """)
+            if sprint_col:
+                try:
+                    await conn.execute("ALTER TABLE tasks DROP CONSTRAINT IF EXISTS tasks_sprint_id_fkey")
+                    await conn.execute("ALTER TABLE tasks DROP COLUMN sprint_id")
+                    print("[Migration] Removed sprint_id column from tasks")
+                except Exception as e:
+                    print(f"[Migration] Note: Could not remove sprint_id: {e}")
 
         return True
 
@@ -385,15 +463,33 @@ async def hasCommandPerm(guildId, command, userRoles):
 # Project CRUD
 # ─────────────────────────────────────────────
 
+async def nextGuildSeq(conn, guildId, entityType):
+    """Atomically get and increment the next per-guild sequence number for an entity type."""
+    row = await conn.fetchval("""
+        INSERT INTO guild_counters (guild_id, entity_type, next_seq)
+        VALUES ($1, $2, 1)
+        ON CONFLICT (guild_id, entity_type)
+        DO UPDATE SET next_seq = guild_counters.next_seq + 1
+        RETURNING next_seq
+    """, str(guildId), entityType)
+    return row
+
 async def createProject(guildId, name, description, createdAt):
     async with pool.acquire() as conn:
-        row = await conn.fetchval("""
-            INSERT INTO projects (guild_id, name, description, created_at)
-            VALUES ($1, $2, $3, $4) RETURNING id
-        """, str(guildId), name, description, int(createdAt))
-        return row
+        seq = await nextGuildSeq(conn, guildId, 'project')
+        await conn.execute("""
+            INSERT INTO projects (guild_id, guild_seq, name, description, created_at)
+            VALUES ($1, $2, $3, $4, $5)
+        """, str(guildId), seq, name, description, int(createdAt))
+        return seq
 
-async def getProject(projectId):
+async def getProject(guildId, guildSeq):
+    async with pool.acquire() as conn:
+        row = await conn.fetchrow("SELECT * FROM projects WHERE guild_id = $1 AND guild_seq = $2", str(guildId), int(guildSeq))
+        return dict(row) if row else None
+
+async def getProjectById(projectId):
+    """Get project by internal ID (for FK lookups)."""
     async with pool.acquire() as conn:
         row = await conn.fetchrow("SELECT * FROM projects WHERE id = $1", int(projectId))
         return dict(row) if row else None
@@ -403,9 +499,9 @@ async def getProjects(guildId):
         rows = await conn.fetch("SELECT * FROM projects WHERE guild_id = $1 ORDER BY created_at DESC", str(guildId))
         return [dict(row) for row in rows]
 
-async def deleteProject(projectId):
+async def deleteProject(guildId, guildSeq):
     async with pool.acquire() as conn:
-        await conn.execute("DELETE FROM projects WHERE id = $1", int(projectId))
+        await conn.execute("DELETE FROM projects WHERE guild_id = $1 AND guild_seq = $2", str(guildId), int(guildSeq))
 
 # ─────────────────────────────────────────────
 # Sprint CRUD
@@ -441,26 +537,27 @@ async def getActiveSprint(guildId, projectId):
 # Task CRUD
 # ─────────────────────────────────────────────
 
-async def createTask(guildId, projectId, sprintId, title, description, priority, assigneeId, creatorId, createdAt):
+async def createTask(guildId, projectId, title, description, priority, assigneeId, creatorId, createdAt):
     async with pool.acquire() as conn:
-        row = await conn.fetchval("""
-            INSERT INTO tasks (guild_id, project_id, sprint_id, title, description, priority, assignee_id, creator_id, created_at, updated_at)
-            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $9) RETURNING id
-        """, str(guildId), int(projectId), int(sprintId) if sprintId else None, title, description, priority, str(assigneeId) if assigneeId else None, str(creatorId), int(createdAt))
-        return row
+        seq = await nextGuildSeq(conn, guildId, 'task')
+        await conn.execute("""
+            INSERT INTO tasks (guild_id, guild_seq, project_id, title, description, priority, assignee_id, creator_id, created_at, updated_at)
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $9)
+        """, str(guildId), seq, int(projectId), title, description, priority, str(assigneeId) if assigneeId else None, str(creatorId), int(createdAt))
+        return seq
 
-async def getTask(taskId):
+async def getTask(guildId, guildSeq):
     async with pool.acquire() as conn:
-        row = await conn.fetchrow("SELECT * FROM tasks WHERE id = $1", int(taskId))
+        row = await conn.fetchrow("SELECT * FROM tasks WHERE guild_id = $1 AND guild_seq = $2", str(guildId), int(guildSeq))
         return dict(row) if row else None
 
-async def updateTaskStatus(taskId, status, updatedAt):
+async def updateTaskStatus(guildId, guildSeq, status, updatedAt):
     async with pool.acquire() as conn:
-        await conn.execute("UPDATE tasks SET status = $2, updated_at = $3 WHERE id = $1", int(taskId), status, int(updatedAt))
+        await conn.execute("UPDATE tasks SET status = $3, updated_at = $4 WHERE guild_id = $1 AND guild_seq = $2", str(guildId), int(guildSeq), status, int(updatedAt))
 
-async def assignTask(taskId, assigneeId, updatedAt):
+async def assignTask(guildId, guildSeq, assigneeId, updatedAt):
     async with pool.acquire() as conn:
-        await conn.execute("UPDATE tasks SET assignee_id = $2, updated_at = $3 WHERE id = $1", int(taskId), str(assigneeId), int(updatedAt))
+        await conn.execute("UPDATE tasks SET assignee_id = $3, updated_at = $4 WHERE guild_id = $1 AND guild_seq = $2", str(guildId), int(guildSeq), str(assigneeId), int(updatedAt))
 
 async def getTasks(guildId, projectId, filters=None):
     async with pool.acquire() as conn:
@@ -488,9 +585,9 @@ async def getTasks(guildId, projectId, filters=None):
         rows = await conn.fetch(query, *params)
         return [dict(row) for row in rows]
 
-async def deleteTask(taskId):
+async def deleteTask(guildId, guildSeq):
     async with pool.acquire() as conn:
-        await conn.execute("DELETE FROM tasks WHERE id = $1", int(taskId))
+        await conn.execute("DELETE FROM tasks WHERE guild_id = $1 AND guild_seq = $2", str(guildId), int(guildSeq))
 
 # ─────────────────────────────────────────────
 # Bug CRUD
@@ -498,24 +595,25 @@ async def deleteTask(taskId):
 
 async def createBug(guildId, projectId, title, description, severity, reporterId, tags, createdAt):
     async with pool.acquire() as conn:
-        row = await conn.fetchval("""
-            INSERT INTO bugs (guild_id, project_id, title, description, severity, reporter_id, tags, created_at, updated_at)
-            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $8) RETURNING id
-        """, str(guildId), int(projectId), title, description, severity, str(reporterId), json.dumps(tags) if isinstance(tags, list) else tags, int(createdAt))
-        return row
+        seq = await nextGuildSeq(conn, guildId, 'bug')
+        await conn.execute("""
+            INSERT INTO bugs (guild_id, guild_seq, project_id, title, description, severity, reporter_id, tags, created_at, updated_at)
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $9)
+        """, str(guildId), seq, int(projectId), title, description, severity, str(reporterId), json.dumps(tags) if isinstance(tags, list) else tags, int(createdAt))
+        return seq
 
-async def getBug(bugId):
+async def getBug(guildId, guildSeq):
     async with pool.acquire() as conn:
-        row = await conn.fetchrow("SELECT * FROM bugs WHERE id = $1", int(bugId))
+        row = await conn.fetchrow("SELECT * FROM bugs WHERE guild_id = $1 AND guild_seq = $2", str(guildId), int(guildSeq))
         return dict(row) if row else None
 
-async def updateBugStatus(bugId, status, updatedAt):
+async def updateBugStatus(guildId, guildSeq, status, updatedAt):
     async with pool.acquire() as conn:
-        await conn.execute("UPDATE bugs SET status = $2, updated_at = $3 WHERE id = $1", int(bugId), status, int(updatedAt))
+        await conn.execute("UPDATE bugs SET status = $3, updated_at = $4 WHERE guild_id = $1 AND guild_seq = $2", str(guildId), int(guildSeq), status, int(updatedAt))
 
-async def assignBug(bugId, assigneeId, updatedAt):
+async def assignBug(guildId, guildSeq, assigneeId, updatedAt):
     async with pool.acquire() as conn:
-        await conn.execute("UPDATE bugs SET assignee_id = $2, updated_at = $3 WHERE id = $1", int(bugId), str(assigneeId), int(updatedAt))
+        await conn.execute("UPDATE bugs SET assignee_id = $3, updated_at = $4 WHERE guild_id = $1 AND guild_seq = $2", str(guildId), int(guildSeq), str(assigneeId), int(updatedAt))
 
 async def getBugs(guildId, projectId, filters=None):
     async with pool.acquire() as conn:
@@ -539,9 +637,9 @@ async def getBugs(guildId, projectId, filters=None):
         rows = await conn.fetch(query, *params)
         return [dict(row) for row in rows]
 
-async def closeBug(bugId, updatedAt):
+async def closeBug(guildId, guildSeq, updatedAt):
     async with pool.acquire() as conn:
-        await conn.execute("UPDATE bugs SET status = 'closed', updated_at = $2 WHERE id = $1", int(bugId), int(updatedAt))
+        await conn.execute("UPDATE bugs SET status = 'closed', updated_at = $3 WHERE guild_id = $1 AND guild_seq = $2", str(guildId), int(guildSeq), int(updatedAt))
 
 # ─────────────────────────────────────────────
 # Team Role CRUD
@@ -589,15 +687,16 @@ async def hasTeamPermission(guildId, userId, requiredRole):
 
 async def createChecklist(guildId, name, createdBy, taskId, createdAt):
     async with pool.acquire() as conn:
-        row = await conn.fetchval("""
-            INSERT INTO checklists (guild_id, name, created_by, task_id, created_at)
-            VALUES ($1, $2, $3, $4, $5) RETURNING id
-        """, str(guildId), name, str(createdBy), int(taskId) if taskId else None, int(createdAt))
-        return row
+        seq = await nextGuildSeq(conn, guildId, 'checklist')
+        internalId = await conn.fetchval("""
+            INSERT INTO checklists (guild_id, guild_seq, name, created_by, task_id, created_at)
+            VALUES ($1, $2, $3, $4, $5, $6) RETURNING id
+        """, str(guildId), seq, name, str(createdBy), int(taskId) if taskId else None, int(createdAt))
+        return seq, internalId
 
-async def getChecklist(checklistId):
+async def getChecklist(guildId, guildSeq):
     async with pool.acquire() as conn:
-        row = await conn.fetchrow("SELECT * FROM checklists WHERE id = $1", int(checklistId))
+        row = await conn.fetchrow("SELECT * FROM checklists WHERE guild_id = $1 AND guild_seq = $2", str(guildId), int(guildSeq))
         return dict(row) if row else None
 
 async def getChecklists(guildId, archived=False):
@@ -607,9 +706,9 @@ async def getChecklists(guildId, archived=False):
         """, str(guildId), archived)
         return [dict(row) for row in rows]
 
-async def archiveChecklist(checklistId):
+async def archiveChecklist(guildId, guildSeq):
     async with pool.acquire() as conn:
-        await conn.execute("UPDATE checklists SET archived = TRUE WHERE id = $1", int(checklistId))
+        await conn.execute("UPDATE checklists SET archived = TRUE WHERE guild_id = $1 AND guild_seq = $2", str(guildId), int(guildSeq))
 
 async def addChecklistItem(checklistId, text):
     async with pool.acquire() as conn:
@@ -641,19 +740,26 @@ async def getChecklistItems(checklistId):
 # Task Comment CRUD
 # ─────────────────────────────────────────────
 
-async def addTaskComment(taskId, userId, content, createdAt):
+async def addTaskComment(guildId, taskGuildSeq, userId, content, createdAt):
     async with pool.acquire() as conn:
+        # Get internal task ID from guild_seq
+        taskId = await conn.fetchval("SELECT id FROM tasks WHERE guild_id = $1 AND guild_seq = $2", str(guildId), int(taskGuildSeq))
+        if not taskId:
+            return None
         row = await conn.fetchval("""
             INSERT INTO task_comments (task_id, user_id, content, created_at)
             VALUES ($1, $2, $3, $4) RETURNING id
-        """, int(taskId), str(userId), content, int(createdAt))
+        """, taskId, str(userId), content, int(createdAt))
         return row
 
-async def getTaskComments(taskId):
+async def getTaskComments(guildId, taskGuildSeq):
     async with pool.acquire() as conn:
+        taskId = await conn.fetchval("SELECT id FROM tasks WHERE guild_id = $1 AND guild_seq = $2", str(guildId), int(taskGuildSeq))
+        if not taskId:
+            return []
         rows = await conn.fetch("""
             SELECT * FROM task_comments WHERE task_id = $1 ORDER BY created_at ASC
-        """, int(taskId))
+        """, taskId)
         return [dict(row) for row in rows]
 
 # ─────────────────────────────────────────────
@@ -714,10 +820,10 @@ async def getAuditLog(guildId, entityType=None, entityId=None, limit=50):
 # ─────────────────────────────────────────────
 
 async def getActiveProject(guildId):
-    projectId = await getConfig(guildId, "activeProject")
-    if not projectId:
+    activeSeq = await getConfig(guildId, "activeProject")
+    if not activeSeq:
         return None
-    return await getProject(int(projectId))
+    return await getProject(guildId, int(activeSeq))
 
 async def setActiveProject(guildId, projectId):
     await setConfig(guildId, "activeProject", str(projectId))

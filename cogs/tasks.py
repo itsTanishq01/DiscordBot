@@ -67,8 +67,6 @@ class Tasks(commands.Cog):
         if not project:
             return
 
-        sprint = await getActiveSprint(interaction.guild_id, project['id'])
-        sprint_id = sprint['id'] if sprint else None
         priority_val = priority.value if priority else 'medium'
         assignee_id = str(assignee.id) if assignee else None
 
@@ -83,13 +81,13 @@ class Tasks(commands.Cog):
 
         for task_title in titles:
             try:
-                tid = await createTask(
-                    interaction.guild_id, project['id'], sprint_id,
+                seq = await createTask(
+                    interaction.guild_id, project['id'],
                     task_title, description if len(titles) == 1 else "",
                     priority_val, assignee_id, str(interaction.user.id), now
                 )
-                created.append((tid, task_title))
-                await logAudit(interaction.guild_id, "create", "task", tid,
+                created.append((seq, task_title))
+                await logAudit(interaction.guild_id, "create", "task", seq,
                                str(interaction.user.id), f"Created task: {task_title}", now)
             except Exception as e:
                 errors.append(f"\u274c `{task_title}`: {e}")
@@ -98,8 +96,6 @@ class Tasks(commands.Cog):
         extra_fields.append(("Priority", priorityDisplay(priority_val), True))
         if assignee:
             extra_fields.append(("Assignee", assignee.mention, True))
-        if sprint:
-            extra_fields.append(("Sprint", sprint['name'], True))
         extra_fields.append(("Project", project['name'], True))
 
         embed = buildBulkEmbed(created, errors, "task", extra_fields)
@@ -115,8 +111,9 @@ class Tasks(commands.Cog):
         if not await requireRole(interaction, await getGroupRoles(interaction.guild_id, 'tasks')):
             return
 
-        task = await getTask(task_id)
-        if not task or str(task['guild_id']) != str(interaction.guild_id):
+        gid = interaction.guild_id
+        task = await getTask(gid, task_id)
+        if not task:
             await interaction.followup.send("Task not found.", ephemeral=True)
             return
 
@@ -131,9 +128,9 @@ class Tasks(commands.Cog):
 
         # WIP limit check
         if new_status == 'in_progress':
-            wip_limit_str = await getConfig(interaction.guild_id, "wipLimit")
+            wip_limit_str = await getConfig(gid, "wipLimit")
             wip_limit = int(wip_limit_str) if wip_limit_str else 5
-            current_wip = await getTasks(interaction.guild_id, task['project_id'],
+            current_wip = await getTasks(gid, task['project_id'],
                                          {'status': 'in_progress'})
             if len(current_wip) >= wip_limit:
                 await interaction.followup.send(
@@ -144,8 +141,8 @@ class Tasks(commands.Cog):
                 return
 
         now = int(time.time())
-        await updateTaskStatus(task_id, new_status, now)
-        await logAudit(interaction.guild_id, "status_change", "task", task_id,
+        await updateTaskStatus(gid, task_id, new_status, now)
+        await logAudit(gid, "status_change", "task", task_id,
                        str(interaction.user.id),
                        f"{old_status} -> {new_status}", now)
 
@@ -177,14 +174,15 @@ class Tasks(commands.Cog):
         if not await requireRole(interaction, await getGroupRoles(interaction.guild_id, 'tasks')):
             return
 
-        task = await getTask(task_id)
-        if not task or str(task['guild_id']) != str(interaction.guild_id):
+        gid = interaction.guild_id
+        task = await getTask(gid, task_id)
+        if not task:
             await interaction.followup.send("Task not found.", ephemeral=True)
             return
 
         now = int(time.time())
-        await assignTask(task_id, str(assignee.id), now)
-        await logAudit(interaction.guild_id, "assign", "task", task_id,
+        await assignTask(gid, task_id, str(assignee.id), now)
+        await logAudit(gid, "assign", "task", task_id,
                        str(interaction.user.id),
                        f"Assigned to {assignee.display_name}", now)
 
@@ -259,7 +257,7 @@ class Tasks(commands.Cog):
                     for t in group_tasks[:5]:
                         p_emoji = PRIORITY_EMOJI.get(t['priority'], '')
                         assignee_str = f" \u2192 <@{t['assignee_id']}>" if t.get('assignee_id') else ""
-                        lines.append(f"`#{t['id']}` {p_emoji} **{t['title']}**{assignee_str}")
+                        lines.append(f"`#{t['guild_seq']}` {p_emoji} **{t['title']}**{assignee_str}")
                     if len(group_tasks) > 5:
                         lines.append(f"*...and {len(group_tasks) - 5} more*")
                     embed.add_field(
@@ -274,7 +272,7 @@ class Tasks(commands.Cog):
                 p_emoji = PRIORITY_EMOJI.get(t['priority'], '')
                 s_emoji = STATUS_EMOJI.get(t['status'], '')
                 assignee_str = f" \u2192 <@{t['assignee_id']}>" if t.get('assignee_id') else ""
-                lines.append(f"{s_emoji} `#{t['id']}` {p_emoji} **{t['title']}**{assignee_str}")
+                lines.append(f"{s_emoji} `#{t['guild_seq']}` {p_emoji} **{t['title']}**{assignee_str}")
             if len(tasks) > 25:
                 lines.append(f"\n*...and {len(tasks) - 25} more tasks*")
             embed.description = "\n".join(lines)
@@ -290,14 +288,15 @@ class Tasks(commands.Cog):
         if not await requireRole(interaction, await getGroupRoles(interaction.guild_id, 'tasks')):
             return
 
-        task = await getTask(task_id)
-        if not task or str(task['guild_id']) != str(interaction.guild_id):
+        gid = interaction.guild_id
+        task = await getTask(gid, task_id)
+        if not task:
             await interaction.followup.send("Task not found.", ephemeral=True)
             return
 
         title = task['title']
-        await deleteTask(task_id)
-        await logAudit(interaction.guild_id, "delete", "task", task_id,
+        await deleteTask(gid, task_id)
+        await logAudit(gid, "delete", "task", task_id,
                        str(interaction.user.id), f"Deleted task: {title}", int(time.time()))
 
         await interaction.followup.send(f"\U0001f5d1\ufe0f Deleted task `#{task_id}`: **{title}**")
@@ -307,8 +306,9 @@ class Tasks(commands.Cog):
     @app_commands.describe(task_id="Task ID to view")
     async def task_view(self, interaction: discord.Interaction, task_id: int):
         await interaction.response.defer(ephemeral=False)
-        task = await getTask(task_id)
-        if not task or str(task['guild_id']) != str(interaction.guild_id):
+        gid = interaction.guild_id
+        task = await getTask(gid, task_id)
+        if not task:
             await interaction.followup.send("Task not found.", ephemeral=True)
             return
 
@@ -330,9 +330,6 @@ class Tasks(commands.Cog):
 
         embed.add_field(name="Creator", value=f"<@{task['creator_id']}>", inline=True)
 
-        if task.get('sprint_id'):
-            embed.add_field(name="Sprint ID", value=f"`#{task['sprint_id']}`", inline=True)
-
         created_ts = task.get('created_at', 0)
         updated_ts = task.get('updated_at', 0)
         embed.add_field(name="Created", value=f"<t:{created_ts}:R>", inline=True)
@@ -340,7 +337,7 @@ class Tasks(commands.Cog):
             embed.add_field(name="Updated", value=f"<t:{updated_ts}:R>", inline=True)
 
         # Recent comments
-        comments = await getTaskComments(task_id)
+        comments = await getTaskComments(gid, task_id)
         if comments:
             recent = comments[-5:]
             comment_lines = []
@@ -361,14 +358,15 @@ class Tasks(commands.Cog):
         if not await requireRole(interaction, await getGroupRoles(interaction.guild_id, 'tasks')):
             return
 
-        task = await getTask(task_id)
-        if not task or str(task['guild_id']) != str(interaction.guild_id):
+        gid = interaction.guild_id
+        task = await getTask(gid, task_id)
+        if not task:
             await interaction.followup.send("Task not found.", ephemeral=True)
             return
 
         now = int(time.time())
-        cid = await addTaskComment(task_id, str(interaction.user.id), text, now)
-        await logAudit(interaction.guild_id, "comment", "task", task_id,
+        cid = await addTaskComment(gid, task_id, str(interaction.user.id), text, now)
+        await logAudit(gid, "comment", "task", task_id,
                        str(interaction.user.id), f"Added comment: {text[:100]}", now)
 
         embed = discord.Embed(

@@ -4,7 +4,7 @@ from discord import app_commands
 from discord.ext import commands
 from database import (
     createBug, getBug, updateBugStatus, assignBug, getBugs, closeBug,
-    getLinkedTasks, getActiveProject, hasTeamPermission, logAudit
+    getActiveProject, logAudit
 )
 from config import embedColor
 from cogs.sdlcHelpers import (
@@ -64,6 +64,7 @@ class Bugs(commands.Cog):
         if not project:
             return
 
+        gid = interaction.guild_id
         severity_val = severity.value if severity else 'medium'
         titles = parseBulkNames(title)
         if not titles:
@@ -76,8 +77,8 @@ class Bugs(commands.Cog):
 
         for bug_title in titles:
             try:
-                bid = await createBug(
-                    interaction.guild_id, project['id'],
+                seq = await createBug(
+                    gid, project['id'],
                     bug_title,
                     description if len(titles) == 1 else "",
                     severity_val,
@@ -87,9 +88,9 @@ class Bugs(commands.Cog):
                 )
                 # assign if provided
                 if assignee:
-                    await assignBug(bid, str(assignee.id), now)
-                created.append((bid, bug_title))
-                await logAudit(interaction.guild_id, "create", "bug", bid,
+                    await assignBug(gid, seq, str(assignee.id), now)
+                created.append((seq, bug_title))
+                await logAudit(gid, "create", "bug", seq,
                                str(interaction.user.id), f"Reported bug: {bug_title}", now)
             except Exception as e:
                 errors.append(f"\u274c `{bug_title}`: {e}")
@@ -112,8 +113,9 @@ class Bugs(commands.Cog):
         if not await requireRole(interaction, await getGroupRoles(interaction.guild_id, 'bugs')):
             return
 
-        bug = await getBug(bug_id)
-        if not bug or str(bug['guild_id']) != str(interaction.guild_id):
+        gid = interaction.guild_id
+        bug = await getBug(gid, bug_id)
+        if not bug:
             await interaction.followup.send("Bug not found.", ephemeral=True)
             return
 
@@ -127,8 +129,8 @@ class Bugs(commands.Cog):
             return
 
         now = int(time.time())
-        await updateBugStatus(bug_id, new_status, now)
-        await logAudit(interaction.guild_id, "status_change", "bug", bug_id,
+        await updateBugStatus(gid, bug_id, new_status, now)
+        await logAudit(gid, "status_change", "bug", bug_id,
                        str(interaction.user.id), f"{old_status} -> {new_status}", now)
 
         embed = discord.Embed(
@@ -140,7 +142,6 @@ class Bugs(commands.Cog):
         embed.add_field(name="From", value=statusDisplay(old_status), inline=True)
         embed.add_field(name="\u27a1\ufe0f To", value=statusDisplay(new_status), inline=True)
 
-        # Notify assignee if different from the person changing status
         if bug.get('assignee_id') and bug['assignee_id'] != str(interaction.user.id):
             embed.set_footer(text="Assignee notified")
             await interaction.followup.send(content=f"<@{bug['assignee_id']}>", embed=embed)
@@ -156,14 +157,15 @@ class Bugs(commands.Cog):
         if not await requireRole(interaction, await getGroupRoles(interaction.guild_id, 'bugs')):
             return
 
-        bug = await getBug(bug_id)
-        if not bug or str(bug['guild_id']) != str(interaction.guild_id):
+        gid = interaction.guild_id
+        bug = await getBug(gid, bug_id)
+        if not bug:
             await interaction.followup.send("Bug not found.", ephemeral=True)
             return
 
         now = int(time.time())
-        await assignBug(bug_id, str(assignee.id), now)
-        await logAudit(interaction.guild_id, "assign", "bug", bug_id,
+        await assignBug(gid, bug_id, str(assignee.id), now)
+        await logAudit(gid, "assign", "bug", bug_id,
                        str(interaction.user.id), f"Assigned to {assignee.display_name}", now)
 
         embed = discord.Embed(
@@ -220,7 +222,6 @@ class Bugs(commands.Cog):
             color=embedColor
         )
 
-        # Group by status when no status filter applied
         if not status:
             status_groups = {}
             for b in bugs:
@@ -238,7 +239,7 @@ class Bugs(commands.Cog):
                 for b in group[:5]:
                     sv_emoji = SEVERITY_EMOJI.get(b['severity'], '')
                     assignee_str = f" \u2192 <@{b['assignee_id']}>" if b.get('assignee_id') else ""
-                    lines.append(f"`#{b['id']}` {sv_emoji} **{b['title']}**{assignee_str}")
+                    lines.append(f"`#{b['guild_seq']}` {sv_emoji} **{b['title']}**{assignee_str}")
                 if len(group) > 5:
                     lines.append(f"*...and {len(group) - 5} more*")
                 embed.add_field(
@@ -252,7 +253,7 @@ class Bugs(commands.Cog):
                 sv_emoji = SEVERITY_EMOJI.get(b['severity'], '')
                 st_emoji = STATUS_EMOJI.get(b['status'], '')
                 assignee_str = f" \u2192 <@{b['assignee_id']}>" if b.get('assignee_id') else ""
-                lines.append(f"{st_emoji} `#{b['id']}` {sv_emoji} **{b['title']}**{assignee_str}")
+                lines.append(f"{st_emoji} `#{b['guild_seq']}` {sv_emoji} **{b['title']}**{assignee_str}")
             if len(bugs) > 25:
                 lines.append(f"\n*...and {len(bugs) - 25} more bugs*")
             embed.description = "\n".join(lines)
@@ -265,8 +266,9 @@ class Bugs(commands.Cog):
     @app_commands.describe(bug_id="Bug ID to view")
     async def bug_view(self, interaction: discord.Interaction, bug_id: int):
         await interaction.response.defer(ephemeral=False)
-        bug = await getBug(bug_id)
-        if not bug or str(bug['guild_id']) != str(interaction.guild_id):
+        gid = interaction.guild_id
+        bug = await getBug(gid, bug_id)
+        if not bug:
             await interaction.followup.send("Bug not found.", ephemeral=True)
             return
 
@@ -294,12 +296,6 @@ class Bugs(commands.Cog):
         if updated_ts != created_ts:
             embed.add_field(name="Updated", value=f"<t:{updated_ts}:R>", inline=True)
 
-        # Linked tasks
-        linked_tasks = await getLinkedTasks(bug_id)
-        if linked_tasks:
-            task_list = ", ".join([f"`#{tid}`" for tid in linked_tasks])
-            embed.add_field(name="Linked Tasks", value=task_list, inline=False)
-
         await interaction.followup.send(embed=embed)
 
     # ── /bug close ────────────────────────────────
@@ -310,8 +306,9 @@ class Bugs(commands.Cog):
         if not await requireRole(interaction, await getGroupRoles(interaction.guild_id, 'bugs')):
             return
 
-        bug = await getBug(bug_id)
-        if not bug or str(bug['guild_id']) != str(interaction.guild_id):
+        gid = interaction.guild_id
+        bug = await getBug(gid, bug_id)
+        if not bug:
             await interaction.followup.send("Bug not found.", ephemeral=True)
             return
 
@@ -322,8 +319,8 @@ class Bugs(commands.Cog):
             return
 
         now = int(time.time())
-        await closeBug(bug_id, now)
-        await logAudit(interaction.guild_id, "close", "bug", bug_id,
+        await closeBug(gid, bug_id, now)
+        await logAudit(gid, "close", "bug", bug_id,
                        str(interaction.user.id), f"Closed bug: {bug['title']}", now)
 
         embed = discord.Embed(

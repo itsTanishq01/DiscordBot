@@ -39,14 +39,14 @@ class Checklists(commands.Cog):
             return
 
         now = int(time.time())
-        cid = await createChecklist(interaction.guild_id, title,
+        seq, internal_id = await createChecklist(interaction.guild_id, title,
                                     str(interaction.user.id), task_id, now)
-        await logAudit(interaction.guild_id, "create", "checklist", cid,
+        await logAudit(interaction.guild_id, "create", "checklist", seq,
                        str(interaction.user.id), f"Created checklist: {title}", now)
 
         embed = discord.Embed(
             title="\u2705 Checklist Created",
-            description=f"**{title}** (ID: `{cid}`)",
+            description=f"**{title}** (ID: `#{seq}`)",
             color=embedColor
         )
         if task_id:
@@ -66,8 +66,9 @@ class Checklists(commands.Cog):
         if not await requireRole(interaction, await getGroupRoles(interaction.guild_id, 'checklists')):
             return
 
-        checklist = await getChecklist(checklist_id)
-        if not checklist or str(checklist['guild_id']) != str(interaction.guild_id):
+        gid = interaction.guild_id
+        checklist = await getChecklist(gid, checklist_id)
+        if not checklist:
             await interaction.followup.send("Checklist not found.", ephemeral=True)
             return
 
@@ -80,11 +81,13 @@ class Checklists(commands.Cog):
             await interaction.followup.send("No valid items provided.", ephemeral=True)
             return
 
+        # Use internal ID for item operations
+        internal_id = checklist['id']
         added = []
         errors = []
         for text in item_texts:
             try:
-                iid = await addChecklistItem(checklist_id, text)
+                iid = await addChecklistItem(internal_id, text)
                 added.append((iid, text))
             except Exception as e:
                 errors.append(f"\u274c `{text}`: {e}")
@@ -109,12 +112,14 @@ class Checklists(commands.Cog):
     @app_commands.describe(checklist_id="Checklist ID to view")
     async def checklist_view(self, interaction: discord.Interaction, checklist_id: int):
         await interaction.response.defer(ephemeral=False)
-        checklist = await getChecklist(checklist_id)
-        if not checklist or str(checklist['guild_id']) != str(interaction.guild_id):
+        gid = interaction.guild_id
+        checklist = await getChecklist(gid, checklist_id)
+        if not checklist:
             await interaction.followup.send("Checklist not found.", ephemeral=True)
             return
 
-        items = await getChecklistItems(checklist_id)
+        internal_id = checklist['id']
+        items = await getChecklistItems(internal_id)
 
         embed = discord.Embed(
             title=f"\U0001f4cb {checklist['name']}",
@@ -131,7 +136,6 @@ class Checklists(commands.Cog):
             done = sum(1 for i in items if i.get('completed'))
             pct = int((done / total) * 100) if total > 0 else 0
 
-            # Progress bar
             filled = pct // 10
             bar = "\u2588" * filled + "\u2591" * (10 - filled)
             embed.description = f"**Progress:** `{bar}` {pct}% ({done}/{total})\n"
@@ -149,7 +153,7 @@ class Checklists(commands.Cog):
         if checklist.get('task_id'):
             embed.add_field(name="Linked Task", value=f"`#{checklist['task_id']}`", inline=True)
         embed.add_field(name="Created by", value=f"<@{checklist['created_by']}>", inline=True)
-        embed.set_footer(text=f"Checklist ID: {checklist_id}")
+        embed.set_footer(text=f"Checklist ID: #{checklist_id}")
         await interaction.followup.send(embed=embed)
 
     # ── /checklist toggle ─────────────────────────
@@ -202,7 +206,7 @@ class Checklists(commands.Cog):
             filled = pct // 10
             bar = "\u2588" * filled + "\u2591" * (10 - filled)
             task_link = f" \u2192 Task `#{cl['task_id']}`" if cl.get('task_id') else ""
-            lines.append(f"`#{cl['id']}` **{cl['name']}** `{bar}` {pct}% ({done}/{total}){task_link}")
+            lines.append(f"`#{cl['guild_seq']}` **{cl['name']}** `{bar}` {pct}% ({done}/{total}){task_link}")
 
         embed.description = "\n".join(lines)
         embed.set_footer(text=f"{len(checklists)} checklist(s)")
@@ -227,8 +231,9 @@ class Checklists(commands.Cog):
         if not await requireRole(interaction, await getGroupRoles(interaction.guild_id, 'checklists')):
             return
 
-        checklist = await getChecklist(checklist_id)
-        if not checklist or str(checklist['guild_id']) != str(interaction.guild_id):
+        gid = interaction.guild_id
+        checklist = await getChecklist(gid, checklist_id)
+        if not checklist:
             await interaction.followup.send("Checklist not found.", ephemeral=True)
             return
 
@@ -236,8 +241,8 @@ class Checklists(commands.Cog):
             await interaction.followup.send("Already archived.", ephemeral=True)
             return
 
-        await archiveChecklist(checklist_id)
-        await logAudit(interaction.guild_id, "archive", "checklist", checklist_id,
+        await archiveChecklist(gid, checklist_id)
+        await logAudit(gid, "archive", "checklist", checklist_id,
                        str(interaction.user.id), f"Archived: {checklist['name']}", int(time.time()))
 
         await interaction.followup.send(
