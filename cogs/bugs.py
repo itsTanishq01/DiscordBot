@@ -8,7 +8,7 @@ from database import (
 )
 from config import embedColor
 from cogs.sdlcHelpers import (
-    requireActiveProject, requireRole, parseBulkNames, buildBulkEmbed,
+    requireActiveProject, requireRole, getGroupRoles, parseBulkNames, buildBulkEmbed,
     BUG_STATUSES, BUG_SEVERITIES, STATUS_EMOJI, SEVERITY_EMOJI,
     statusDisplay, severityDisplay
 )
@@ -57,7 +57,7 @@ class Bugs(commands.Cog):
                          description: str = "",
                          assignee: discord.Member = None):
         await interaction.response.defer(ephemeral=False)
-        if not await requireRole(interaction, ['developer', 'lead', 'admin']):
+        if not await requireRole(interaction, await getGroupRoles(interaction.guild_id, 'bugs')):
             return
 
         project = await requireActiveProject(interaction)
@@ -109,7 +109,7 @@ class Bugs(commands.Cog):
     async def bug_status(self, interaction: discord.Interaction, bug_id: int,
                          status: app_commands.Choice[str]):
         await interaction.response.defer(ephemeral=False)
-        if not await requireRole(interaction, ['developer', 'lead', 'admin']):
+        if not await requireRole(interaction, await getGroupRoles(interaction.guild_id, 'bugs')):
             return
 
         bug = await getBug(bug_id)
@@ -153,7 +153,7 @@ class Bugs(commands.Cog):
     async def bug_assign(self, interaction: discord.Interaction, bug_id: int,
                          assignee: discord.Member):
         await interaction.response.defer(ephemeral=False)
-        if not await requireRole(interaction, ['lead', 'admin']):
+        if not await requireRole(interaction, await getGroupRoles(interaction.guild_id, 'bugs')):
             return
 
         bug = await getBug(bug_id)
@@ -307,7 +307,7 @@ class Bugs(commands.Cog):
     @app_commands.describe(bug_id="Bug ID to close")
     async def bug_close(self, interaction: discord.Interaction, bug_id: int):
         await interaction.response.defer(ephemeral=False)
-        if not await requireRole(interaction, ['qa', 'developer', 'lead', 'admin']):
+        if not await requireRole(interaction, await getGroupRoles(interaction.guild_id, 'bugs')):
             return
 
         bug = await getBug(bug_id)

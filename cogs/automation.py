@@ -7,7 +7,7 @@ from database import (
 )
 from config import embedColor
 from cogs.sdlcHelpers import (
-    requireActiveProject, requireRole,
+    requireActiveProject, requireRole, getGroupRoles,
     STATUS_EMOJI, SEVERITY_EMOJI, statusDisplay, severityDisplay
 )
 
@@ -118,7 +118,7 @@ class Automation(commands.Cog):
     @app_commands.describe(days="Items not updated in this many days (default: 7)")
     async def audit_stale(self, interaction: discord.Interaction, days: int = 7):
         await interaction.response.defer(ephemeral=False)
-        if not await requireRole(interaction, ['lead', 'admin']):
+        if not await requireRole(interaction, await getGroupRoles(interaction.guild_id, 'audit')):
             return
 
         project = await requireActiveProject(interaction)

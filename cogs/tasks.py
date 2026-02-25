@@ -9,7 +9,7 @@ from database import (
 )
 from config import embedColor
 from cogs.sdlcHelpers import (
-    requireActiveProject, requireRole, parseBulkNames, buildBulkEmbed,
+    requireActiveProject, requireRole, getGroupRoles, parseBulkNames, buildBulkEmbed,
     TASK_STATUSES, TASK_PRIORITIES, STATUS_EMOJI, PRIORITY_EMOJI,
     statusDisplay, priorityDisplay
 )
@@ -60,7 +60,7 @@ class Tasks(commands.Cog):
                        assignee: discord.Member = None,
                        description: str = ""):
         await interaction.response.defer(ephemeral=False)
-        if not await requireRole(interaction, ['developer', 'lead', 'admin']):
+        if not await requireRole(interaction, await getGroupRoles(interaction.guild_id, 'tasks')):
             return
 
         project = await requireActiveProject(interaction)
@@ -112,7 +112,7 @@ class Tasks(commands.Cog):
     async def task_status(self, interaction: discord.Interaction, task_id: int,
                           status: app_commands.Choice[str]):
         await interaction.response.defer(ephemeral=False)
-        if not await requireRole(interaction, ['developer', 'lead', 'admin']):
+        if not await requireRole(interaction, await getGroupRoles(interaction.guild_id, 'tasks')):
             return
 
         task = await getTask(task_id)
@@ -174,7 +174,7 @@ class Tasks(commands.Cog):
     async def task_assign(self, interaction: discord.Interaction, task_id: int,
                           assignee: discord.Member):
         await interaction.response.defer(ephemeral=False)
-        if not await requireRole(interaction, ['lead', 'admin']):
+        if not await requireRole(interaction, await getGroupRoles(interaction.guild_id, 'tasks')):
             return
 
         task = await getTask(task_id)
@@ -287,7 +287,7 @@ class Tasks(commands.Cog):
     @app_commands.describe(task_id="Task ID to delete")
     async def task_delete(self, interaction: discord.Interaction, task_id: int):
         await interaction.response.defer(ephemeral=False)
-        if not await requireRole(interaction, ['lead', 'admin']):
+        if not await requireRole(interaction, await getGroupRoles(interaction.guild_id, 'tasks')):
             return
 
         task = await getTask(task_id)
@@ -364,7 +364,7 @@ class Tasks(commands.Cog):
     @app_commands.describe(task_id="Task ID", text="Comment text")
     async def task_comment(self, interaction: discord.Interaction, task_id: int, text: str):
         await interaction.response.defer(ephemeral=False)
-        if not await requireRole(interaction, ['developer', 'lead', 'admin']):
+        if not await requireRole(interaction, await getGroupRoles(interaction.guild_id, 'tasks')):
             return
 
         task = await getTask(task_id)
@@ -390,7 +390,7 @@ class Tasks(commands.Cog):
     @app_commands.describe(task_id="Task ID", bug_id="Bug ID to link")
     async def task_linkbug(self, interaction: discord.Interaction, task_id: int, bug_id: int):
         await interaction.response.defer(ephemeral=False)
-        if not await requireRole(interaction, ['developer', 'lead', 'admin']):
+        if not await requireRole(interaction, await getGroupRoles(interaction.guild_id, 'tasks')):
             return
 
         task = await getTask(task_id)

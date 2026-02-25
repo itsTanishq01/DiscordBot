@@ -6,7 +6,7 @@ from discord.ext import commands
 from database import createBug, logAudit
 from config import embedColor
 from cogs.sdlcHelpers import (
-    requireActiveProject, requireRole, parseBulkNames,
+    requireActiveProject, requireRole, getGroupRoles, parseBulkNames,
     BUG_SEVERITIES, SEVERITY_EMOJI, severityDisplay
 )
 
@@ -227,7 +227,7 @@ class Ingestion(commands.Cog):
         data="Paste a markdown table, line-by-line list, or comma-separated bug titles"
     )
     async def ingest_bugs(self, interaction: discord.Interaction, data: str):
-        if not await requireRole(interaction, ['developer', 'lead', 'admin']):
+        if not await requireRole(interaction, await getGroupRoles(interaction.guild_id, 'ingestion')):
             return
 
         project = await requireActiveProject(interaction)

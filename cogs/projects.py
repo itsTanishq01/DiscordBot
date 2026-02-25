@@ -7,7 +7,7 @@ from database import (
     setActiveProject, getActiveProject, logAudit
 )
 from config import embedColor
-from cogs.sdlcHelpers import requireRole
+from cogs.sdlcHelpers import requireRole, getGroupRoles
 
 
 class Projects(commands.Cog):
@@ -32,7 +32,7 @@ class Projects(commands.Cog):
     )
     async def project_new(self, interaction: discord.Interaction, name: str, description: str = ""):
         await interaction.response.defer(ephemeral=False)
-        if not await requireRole(interaction, ['lead', 'admin']):
+        if not await requireRole(interaction, await getGroupRoles(interaction.guild_id, 'projects')):
             return
 
         names = [n.strip() for n in name.split(",") if n.strip()]
@@ -120,7 +120,7 @@ class Projects(commands.Cog):
     @app_commands.describe(project_id="Project ID to delete")
     async def project_delete(self, interaction: discord.Interaction, project_id: int):
         await interaction.response.defer(ephemeral=False)
-        if not await requireRole(interaction, ['admin']):
+        if not await requireRole(interaction, await getGroupRoles(interaction.guild_id, 'projects')):
             return
 
         project = await getProject(project_id)

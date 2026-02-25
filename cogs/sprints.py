@@ -8,7 +8,7 @@ from database import (
     getActiveProject, logAudit
 )
 from config import embedColor
-from cogs.sdlcHelpers import requireActiveProject, requireRole
+from cogs.sdlcHelpers import requireActiveProject, requireRole, getGroupRoles
 
 SPRINT_STATUSES = ['planning', 'active', 'closed']
 STATUS_EMOJI = {'planning': '📋', 'active': '🟢', 'closed': '⬛'}
@@ -37,7 +37,7 @@ class Sprints(commands.Cog):
     )
     async def sprint_new(self, interaction: discord.Interaction, name: str, start_date: str = None, end_date: str = None):
         await interaction.response.defer(ephemeral=False)
-        if not await requireRole(interaction, ['lead', 'admin']):
+        if not await requireRole(interaction, await getGroupRoles(interaction.guild_id, 'sprints')):
             return
 
         project = await requireActiveProject(interaction)
@@ -138,7 +138,7 @@ class Sprints(commands.Cog):
     @app_commands.describe(sprint_id="Sprint ID to activate")
     async def sprint_activate(self, interaction: discord.Interaction, sprint_id: int):
         await interaction.response.defer(ephemeral=False)
-        if not await requireRole(interaction, ['lead', 'admin']):
+        if not await requireRole(interaction, await getGroupRoles(interaction.guild_id, 'sprints')):
             return
 
         project = await requireActiveProject(interaction)
@@ -156,7 +156,7 @@ class Sprints(commands.Cog):
     @sprint_group.command(name="close", description="Close the active sprint")
     async def sprint_close(self, interaction: discord.Interaction):
         await interaction.response.defer(ephemeral=False)
-        if not await requireRole(interaction, ['lead', 'admin']):
+        if not await requireRole(interaction, await getGroupRoles(interaction.guild_id, 'sprints')):
             return
 
         project = await requireActiveProject(interaction)

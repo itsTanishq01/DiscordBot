@@ -1,6 +1,33 @@
 import discord
-from database import getActiveProject, getTeamRole
+from database import getActiveProject, getTeamRole, getConfig
 from config import embedColor
+
+# ─────────────────────────────────────────────
+# Configurable Permission Groups
+# ─────────────────────────────────────────────
+
+VALID_ROLES = {'admin', 'lead', 'developer', 'qa', 'viewer'}
+
+DEFAULT_GROUP_ROLES = {
+    'bugs':       ['developer', 'lead', 'admin'],
+    'checklists': ['developer', 'lead', 'admin'],
+    'projects':   ['lead', 'admin'],
+    'sprints':    ['lead', 'admin'],
+    'tasks':      ['developer', 'lead', 'admin'],
+    'workload':   ['lead', 'admin'],
+    'audit':      ['lead', 'admin'],
+    'ingestion':  ['developer', 'lead', 'admin'],
+}
+
+VALID_GROUPS = set(DEFAULT_GROUP_ROLES.keys())
+
+
+async def getGroupRoles(guildId, group):
+    """Get the allowed roles for a command group. Checks DB for overrides, falls back to defaults."""
+    val = await getConfig(guildId, f"devperm_{group}")
+    if val:
+        return [r.strip() for r in val.split(",") if r.strip() in VALID_ROLES]
+    return DEFAULT_GROUP_ROLES.get(group, ['developer', 'lead', 'admin'])
 
 
 async def requireActiveProject(interaction):

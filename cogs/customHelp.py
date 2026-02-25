@@ -7,7 +7,7 @@ class MyHelp(commands.HelpCommand):
     async def send_bot_help(self, mapping):
         embed = discord.Embed(title="🤖 Bot Commands", color=embedColor)
         
-        ps_cogs = {"Projects", "Sprints", "Tasks", "Team", "Workload", "Dashboards", "Ingestion", "Automation"}
+        ps_cogs = {"Projects", "Sprints", "Tasks", "Team", "Workload", "Dashboards", "Ingestion", "Automation", "DevPerms"}
         bug_cogs = {"Bugs"}
         checklist_cogs = {"Checklists"}
         
@@ -122,7 +122,7 @@ class CustomHelp(commands.Cog):
                 "Checklists": []
             }
             
-            ps_cogs = {"Projects", "Sprints", "Tasks", "Team", "Workload", "Dashboards", "Ingestion", "Automation"}
+            ps_cogs = {"Projects", "Sprints", "Tasks", "Team", "Workload", "Dashboards", "Ingestion", "Automation", "DevPerms"}
             bug_cogs = {"Bugs"}
             checklist_cogs = {"Checklists"}
             

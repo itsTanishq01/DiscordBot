@@ -8,7 +8,7 @@ from database import (
     getChecklistItems, logAudit
 )
 from config import embedColor
-from cogs.sdlcHelpers import requireActiveProject, requireRole, parseBulkNames
+from cogs.sdlcHelpers import requireActiveProject, requireRole, getGroupRoles, parseBulkNames
 
 
 class Checklists(commands.Cog):
@@ -35,7 +35,7 @@ class Checklists(commands.Cog):
     async def checklist_new(self, interaction: discord.Interaction, title: str,
                             task_id: int = None):
         await interaction.response.defer(ephemeral=False)
-        if not await requireRole(interaction, ['developer', 'lead', 'admin']):
+        if not await requireRole(interaction, await getGroupRoles(interaction.guild_id, 'checklists')):
             return
 
         now = int(time.time())
@@ -63,7 +63,7 @@ class Checklists(commands.Cog):
     async def checklist_add(self, interaction: discord.Interaction, checklist_id: int,
                             items: str):
         await interaction.response.defer(ephemeral=False)
-        if not await requireRole(interaction, ['developer', 'lead', 'admin']):
+        if not await requireRole(interaction, await getGroupRoles(interaction.guild_id, 'checklists')):
             return
 
         checklist = await getChecklist(checklist_id)
@@ -157,7 +157,7 @@ class Checklists(commands.Cog):
     @app_commands.describe(item_id="Item ID to toggle")
     async def checklist_toggle(self, interaction: discord.Interaction, item_id: int):
         await interaction.response.defer(ephemeral=False)
-        if not await requireRole(interaction, ['developer', 'lead', 'admin']):
+        if not await requireRole(interaction, await getGroupRoles(interaction.guild_id, 'checklists')):
             return
 
         now = int(time.time())
@@ -213,7 +213,7 @@ class Checklists(commands.Cog):
     @app_commands.describe(item_id="Item ID to remove")
     async def checklist_remove(self, interaction: discord.Interaction, item_id: int):
         await interaction.response.defer(ephemeral=False)
-        if not await requireRole(interaction, ['developer', 'lead', 'admin']):
+        if not await requireRole(interaction, await getGroupRoles(interaction.guild_id, 'checklists')):
             return
 
         await removeChecklistItem(item_id)
@@ -224,7 +224,7 @@ class Checklists(commands.Cog):
     @app_commands.describe(checklist_id="Checklist ID to archive")
     async def checklist_archive(self, interaction: discord.Interaction, checklist_id: int):
         await interaction.response.defer(ephemeral=False)
-        if not await requireRole(interaction, ['lead', 'admin']):
+        if not await requireRole(interaction, await getGroupRoles(interaction.guild_id, 'checklists')):
             return
 
         checklist = await getChecklist(checklist_id)
