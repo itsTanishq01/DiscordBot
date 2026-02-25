@@ -4,4 +4,14 @@ __pycache__/
 .DS_Store
 .vscode/
 venv/
-__pycache__/
+
+# GSD/Agent methodology (keep local only)
+.agent/
+.gemini/
+.gsd/
+adapters/
+docs/
+scripts/
+PROJECT_RULES.md
+GSD-STYLE.md
+model_capabilities.yaml
