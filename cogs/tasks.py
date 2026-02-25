@@ -56,7 +56,8 @@ class Tasks(commands.Cog):
                        priority: app_commands.Choice[str] = None,
                        assignee: discord.Member = None,
                        description: str = ""):
-        if not await requireRole(interaction, 'developer'):
+        await interaction.response.defer(ephemeral=False)
+        if not await requireRole(interaction, ['developer', 'lead', 'admin']):
             return
 
         project = await requireActiveProject(interaction)
@@ -70,7 +71,7 @@ class Tasks(commands.Cog):
 
         titles = parseBulkNames(title)
         if not titles:
-            await interaction.response.send_message("No valid titles provided.", ephemeral=True)
+            await interaction.followup.send("No valid titles provided.", ephemeral=True)
             return
 
         now = int(time.time())
@@ -99,7 +100,7 @@ class Tasks(commands.Cog):
         extra_fields.append(("Project", project['name'], True))
 
         embed = buildBulkEmbed(created, errors, "task", extra_fields)
-        await interaction.response.send_message(embed=embed)
+        await interaction.followup.send(embed=embed)
 
     # ── /task status ──────────────────────────────
     @task_group.command(name="status", description="Update task status (Kanban column)")
@@ -107,7 +108,7 @@ class Tasks(commands.Cog):
     @app_commands.choices(status=STATUS_CHOICES)
     async def task_status(self, interaction: discord.Interaction, task_id: int,
                           status: app_commands.Choice[str]):
-        if not await requireRole(interaction, 'developer'):
+        if not await requireRole(interaction, ['developer', 'lead', 'admin']):
             return
 
         task = await getTask(task_id)
@@ -168,7 +169,7 @@ class Tasks(commands.Cog):
     @app_commands.describe(task_id="Task ID", assignee="Member to assign")
     async def task_assign(self, interaction: discord.Interaction, task_id: int,
                           assignee: discord.Member):
-        if not await requireRole(interaction, 'lead'):
+        if not await requireRole(interaction, ['lead', 'admin']):
             return
 
         task = await getTask(task_id)
@@ -279,7 +280,7 @@ class Tasks(commands.Cog):
     @task_group.command(name="delete", description="Delete a task")
     @app_commands.describe(task_id="Task ID to delete")
     async def task_delete(self, interaction: discord.Interaction, task_id: int):
-        if not await requireRole(interaction, 'lead'):
+        if not await requireRole(interaction, ['lead', 'admin']):
             return
 
         task = await getTask(task_id)
@@ -354,7 +355,7 @@ class Tasks(commands.Cog):
     @task_group.command(name="comment", description="Add a comment to a task")
     @app_commands.describe(task_id="Task ID", text="Comment text")
     async def task_comment(self, interaction: discord.Interaction, task_id: int, text: str):
-        if not await requireRole(interaction, 'developer'):
+        if not await requireRole(interaction, ['developer', 'lead', 'admin']):
             return
 
         task = await getTask(task_id)
@@ -379,7 +380,7 @@ class Tasks(commands.Cog):
     @task_group.command(name="linkbug", description="Link a bug to a task")
     @app_commands.describe(task_id="Task ID", bug_id="Bug ID to link")
     async def task_linkbug(self, interaction: discord.Interaction, task_id: int, bug_id: int):
-        if not await requireRole(interaction, 'developer'):
+        if not await requireRole(interaction, ['developer', 'lead', 'admin']):
             return
 
         task = await getTask(task_id)

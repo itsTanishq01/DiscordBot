@@ -29,7 +29,7 @@ class Workload(commands.Cog):
 
         # If checking someone else, require lead role
         if member and member.id != interaction.user.id:
-            if not await requireRole(interaction, 'lead'):
+            if not await requireRole(interaction, ['lead', 'admin']):
                 return
 
         load = await getUserWorkload(interaction.guild_id, str(target.id))
@@ -76,7 +76,7 @@ class Workload(commands.Cog):
     # ── /workload team ────────────────────────────
     @wl_group.command(name="team", description="View workload across all team members")
     async def workload_team(self, interaction: discord.Interaction):
-        if not await requireRole(interaction, 'lead'):
+        if not await requireRole(interaction, ['lead', 'admin']):
             return
 
         members = await getTeamMembers(interaction.guild_id)
@@ -148,7 +148,7 @@ class Workload(commands.Cog):
     )
     async def workload_settings(self, interaction: discord.Interaction,
                                 max_tasks: int = None, wip_limit: int = None):
-        if not await requireRole(interaction, 'admin'):
+        if not await requireRole(interaction, ['admin']):
             return
 
         updated = []

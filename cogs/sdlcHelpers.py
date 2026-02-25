@@ -7,9 +7,11 @@ async def requireActiveProject(interaction):
     """Check for active project. Sends error if none. Returns project dict or None."""
     project = await getActiveProject(interaction.guild_id)
     if not project:
-        await interaction.response.send_message(
-            "No active project. Set one with `/project set`.", ephemeral=True
-        )
+        error_msg = "No active project. Set one with `/project set`."
+        if interaction.response.is_done():
+            await interaction.followup.send(error_msg, ephemeral=True)
+        else:
+            await interaction.response.send_message(error_msg, ephemeral=True)
         return None
     return project
 

@@ -53,7 +53,8 @@ class Bugs(commands.Cog):
                          severity: app_commands.Choice[str] = None,
                          description: str = "",
                          assignee: discord.Member = None):
-        if not await requireRole(interaction, 'developer'):
+        await interaction.response.defer(ephemeral=False)
+        if not await requireRole(interaction, ['developer', 'lead', 'admin']):
             return
 
         project = await requireActiveProject(interaction)
@@ -63,7 +64,7 @@ class Bugs(commands.Cog):
         severity_val = severity.value if severity else 'medium'
         titles = parseBulkNames(title)
         if not titles:
-            await interaction.response.send_message("No valid titles provided.", ephemeral=True)
+            await interaction.followup.send("No valid titles provided.", ephemeral=True)
             return
 
         now = int(time.time())
@@ -96,7 +97,7 @@ class Bugs(commands.Cog):
         extra_fields.append(("Project", project['name'], True))
 
         embed = buildBulkEmbed(created, errors, "bug", extra_fields)
-        await interaction.response.send_message(embed=embed)
+        await interaction.followup.send(embed=embed)
 
     # ── /bug status ───────────────────────────────
     @bug_group.command(name="status", description="Update bug lifecycle status")
@@ -104,7 +105,7 @@ class Bugs(commands.Cog):
     @app_commands.choices(status=STATUS_CHOICES)
     async def bug_status(self, interaction: discord.Interaction, bug_id: int,
                          status: app_commands.Choice[str]):
-        if not await requireRole(interaction, 'developer'):
+        if not await requireRole(interaction, ['developer', 'lead', 'admin']):
             return
 
         bug = await getBug(bug_id)
@@ -147,7 +148,7 @@ class Bugs(commands.Cog):
     @app_commands.describe(bug_id="Bug ID", assignee="Member to assign")
     async def bug_assign(self, interaction: discord.Interaction, bug_id: int,
                          assignee: discord.Member):
-        if not await requireRole(interaction, 'lead'):
+        if not await requireRole(interaction, ['lead', 'admin']):
             return
 
         bug = await getBug(bug_id)
@@ -298,7 +299,7 @@ class Bugs(commands.Cog):
     @bug_group.command(name="close", description="Close a bug (QA verified)")
     @app_commands.describe(bug_id="Bug ID to close")
     async def bug_close(self, interaction: discord.Interaction, bug_id: int):
-        if not await requireRole(interaction, 'qa'):
+        if not await requireRole(interaction, ['qa', 'developer', 'lead', 'admin']):
             return
 
         bug = await getBug(bug_id)

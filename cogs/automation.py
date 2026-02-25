@@ -113,7 +113,7 @@ class Automation(commands.Cog):
     @audit_group.command(name="stale", description="Find tasks and bugs not updated recently")
     @app_commands.describe(days="Items not updated in this many days (default: 7)")
     async def audit_stale(self, interaction: discord.Interaction, days: int = 7):
-        if not await requireRole(interaction, 'lead'):
+        if not await requireRole(interaction, ['lead', 'admin']):
             return
 
         project = await requireActiveProject(interaction)

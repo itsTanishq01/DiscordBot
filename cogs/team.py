@@ -45,7 +45,7 @@ class Team(commands.Cog):
     @app_commands.choices(role=ROLE_CHOICES)
     async def team_assign(self, interaction: discord.Interaction,
                           member: discord.Member, role: app_commands.Choice[str]):
-        if not await requireRole(interaction, 'admin'):
+        if not await requireRole(interaction, ['admin']):
             return
 
         await setTeamRole(interaction.guild_id, str(member.id), role.value)
@@ -64,7 +64,7 @@ class Team(commands.Cog):
     @team_group.command(name="unassign", description="Remove a member's SDLC role")
     @app_commands.describe(member="Member whose role should be removed")
     async def team_unassign(self, interaction: discord.Interaction, member: discord.Member):
-        if not await requireRole(interaction, 'admin'):
+        if not await requireRole(interaction, ['admin']):
             return
 
         current = await getTeamRole(interaction.guild_id, str(member.id))

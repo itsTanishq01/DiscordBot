@@ -227,7 +227,7 @@ class Ingestion(commands.Cog):
         data="Paste a markdown table, line-by-line list, or comma-separated bug titles"
     )
     async def ingest_bugs(self, interaction: discord.Interaction, data: str):
-        if not await requireRole(interaction, 'developer'):
+        if not await requireRole(interaction, ['developer', 'lead', 'admin']):
             return
 
         project = await requireActiveProject(interaction)
