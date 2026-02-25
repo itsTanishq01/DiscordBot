@@ -1,5 +1,5 @@
 import discord
-from database import getActiveProject, hasTeamPermission
+from database import getActiveProject, getTeamRole
 from config import embedColor
 
 
@@ -14,14 +14,31 @@ async def requireActiveProject(interaction):
     return project
 
 
-async def requireRole(interaction, role):
-    """Check SDLC role permission with Discord admin fallback. Returns True if allowed."""
-    if await hasTeamPermission(interaction.guild_id, str(interaction.user.id), role):
+async def requireRole(interaction, allowed_roles):
+    """Check if user has one of the explicitly allowed SDLC roles.
+
+    Args:
+        interaction: Discord interaction
+        allowed_roles: str or list of str — exact role(s) that can use this command.
+                       e.g. 'developer' or ['developer', 'lead', 'admin']
+
+    Discord server admins always pass as a fallback.
+    """
+    if isinstance(allowed_roles, str):
+        allowed_roles = [allowed_roles]
+
+    user_role = await getTeamRole(interaction.guild_id, str(interaction.user.id))
+
+    if user_role and user_role in allowed_roles:
         return True
+
+    # Discord admin fallback
     if interaction.user.guild_permissions.administrator:
         return True
+
+    role_names = ", ".join([r.capitalize() for r in allowed_roles])
     await interaction.response.send_message(
-        f"Requires **{role.capitalize()}** role or Admin.", ephemeral=True
+        f"Requires one of: **{role_names}** (or Discord Admin).", ephemeral=True
     )
     return False
 
