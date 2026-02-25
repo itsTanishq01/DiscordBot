@@ -4,8 +4,8 @@ from discord import app_commands
 from discord.ext import commands
 from database import (
     createTask, getTask, updateTaskStatus, assignTask, getTasks, deleteTask,
-    getActiveSprint, getActiveProject, hasTeamPermission, logAudit, getConfig,
-    addTaskComment, getTaskComments, linkTaskBug, getLinkedBugs, getBug
+    getActiveProject, logAudit, getConfig,
+    addTaskComment, getTaskComments
 )
 from config import embedColor
 from cogs.sdlcHelpers import (
@@ -339,12 +339,6 @@ class Tasks(commands.Cog):
         if updated_ts != created_ts:
             embed.add_field(name="Updated", value=f"<t:{updated_ts}:R>", inline=True)
 
-        # Linked bugs
-        linked_bugs = await getLinkedBugs(task_id)
-        if linked_bugs:
-            bug_list = ", ".join([f"`#{bid}`" for bid in linked_bugs])
-            embed.add_field(name="Linked Bugs", value=bug_list, inline=False)
-
         # Recent comments
         comments = await getTaskComments(task_id)
         if comments:
@@ -383,36 +377,6 @@ class Tasks(commands.Cog):
             color=embedColor
         )
         embed.set_footer(text=f"Comment #{cid} by {interaction.user.display_name}")
-        await interaction.followup.send(embed=embed)
-
-    # ── /task linkbug ─────────────────────────────
-    @task_group.command(name="linkbug", description="Link a bug to a task")
-    @app_commands.describe(task_id="Task ID", bug_id="Bug ID to link")
-    async def task_linkbug(self, interaction: discord.Interaction, task_id: int, bug_id: int):
-        await interaction.response.defer(ephemeral=False)
-        if not await requireRole(interaction, await getGroupRoles(interaction.guild_id, 'tasks')):
-            return
-
-        task = await getTask(task_id)
-        if not task or str(task['guild_id']) != str(interaction.guild_id):
-            await interaction.followup.send("Task not found.", ephemeral=True)
-            return
-
-        bug = await getBug(bug_id)
-        if not bug or str(bug['guild_id']) != str(interaction.guild_id):
-            await interaction.followup.send("Bug not found.", ephemeral=True)
-            return
-
-        await linkTaskBug(task_id, bug_id)
-        await logAudit(interaction.guild_id, "link", "task", task_id,
-                       str(interaction.user.id),
-                       f"Linked task #{task_id} to bug #{bug_id}", int(time.time()))
-
-        embed = discord.Embed(
-            title="\U0001f517 Task-Bug Linked",
-            description=f"Task `#{task_id}` **{task['title']}**\n\u2194\ufe0f Bug `#{bug_id}` **{bug['title']}**",
-            color=embedColor
-        )
         await interaction.followup.send(embed=embed)
 
 

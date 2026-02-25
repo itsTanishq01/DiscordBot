@@ -32,7 +32,7 @@ class SlashCommands(commands.Cog):
         
         embed = discord.Embed(title="Current Configuration", color=embedColor)
         
-        embed.add_field(name="General", value=f"Prefix: `{config.get('prefix', '.')}`\nModLog: <#{config.get('modLogChannel', 'None')}>", inline=False)
+        embed.add_field(name="General", value=f"Prefix: `{config.get('prefix', '.')}`\nModLog: <#{config.get('modLogChannel', 'None')}>\nAutomod Log: <#{config.get('automodLogChannel', 'None')}>", inline=False)
         
         spam = "✅" if config.get("spamEnabled") == "1" else "❌"
         attach = "✅" if config.get("attachmentEnabled") == "1" else "❌"
@@ -50,11 +50,17 @@ class SlashCommands(commands.Cog):
         
         await interaction.response.send_message(embed=embed, ephemeral=True)
 
-    @app_commands.command(name="modlog", description="Set mod-log channel")
+    @app_commands.command(name="modlog", description="Set mod-log channel (kicks, bans, warnings)")
     @app_commands.checks.has_permissions(administrator=True)
     async def set_modlog(self, interaction: discord.Interaction, channel: discord.TextChannel):
         await setConfig(interaction.guild_id, "modLogChannel", str(channel.id))
-        await interaction.response.send_message(f"Mod-log channel set to {channel.mention}", ephemeral=True)
+        await interaction.response.send_message(f"📋 Mod-log channel set to {channel.mention}\n*Kicks, bans, warnings will be logged here.*", ephemeral=True)
+
+    @app_commands.command(name="automodlog", description="Set a separate channel for automod filter actions")
+    @app_commands.checks.has_permissions(administrator=True)
+    async def set_automodlog(self, interaction: discord.Interaction, channel: discord.TextChannel):
+        await setConfig(interaction.guild_id, "automodLogChannel", str(channel.id))
+        await interaction.response.send_message(f"🛡️ Automod log channel set to {channel.mention}\n*Spam, link, word, and other filter actions will be logged here instead of the mod-log.*", ephemeral=True)
 
     @app_commands.command(name="prefix", description="Set command prefix")
     @app_commands.checks.has_permissions(administrator=True)

@@ -49,15 +49,9 @@ cogExtensions = [
     "cogs.permissions",
     "cogs.customHelp",
     "cogs.projects",
-    "cogs.sprints",
     "cogs.tasks",
     "cogs.bugs",
-    "cogs.team",
     "cogs.checklists",
-    "cogs.workload",
-    "cogs.dashboards",
-    "cogs.ingestion",
-    "cogs.automation",
     "cogs.devperms",
 ]
 

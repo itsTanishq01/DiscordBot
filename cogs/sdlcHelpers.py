@@ -12,11 +12,7 @@ DEFAULT_GROUP_ROLES = {
     'bugs':       ['developer', 'lead', 'admin'],
     'checklists': ['developer', 'lead', 'admin'],
     'projects':   ['lead', 'admin'],
-    'sprints':    ['lead', 'admin'],
     'tasks':      ['developer', 'lead', 'admin'],
-    'workload':   ['lead', 'admin'],
-    'audit':      ['lead', 'admin'],
-    'ingestion':  ['developer', 'lead', 'admin'],
 }
 
 VALID_GROUPS = set(DEFAULT_GROUP_ROLES.keys())

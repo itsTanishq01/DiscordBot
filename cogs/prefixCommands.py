@@ -360,7 +360,7 @@ class PrefixCommands(commands.Cog):
         config = await getAllConfig(guildId)
         
         embed = discord.Embed(title="Current Configuration", color=embedColor)
-        embed.add_field(name="General", value=f"Prefix: `{config.get('prefix', '.')}`\nModLog: <#{config.get('modLogChannel', 'None')}>", inline=False)
+        embed.add_field(name="General", value=f"Prefix: `{config.get('prefix', '.')}`\nModLog: <#{config.get('modLogChannel', 'None')}>\nAutomod Log: <#{config.get('automodLogChannel', 'None')}>", inline=False)
         
         spam = "✅" if config.get("spamEnabled") == "1" else "❌"
         attach = "✅" if config.get("attachmentEnabled") == "1" else "❌"

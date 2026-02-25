@@ -2,7 +2,13 @@ import discord
 from database import getConfig
 
 async def sendModLog(bot, guildId, user, channel, rule, messageContent=None, attachment=None, **kwargs):
-    logChannelId = await getConfig(guildId, "modLogChannel")
+    """Send to the automod log channel if set, otherwise fall back to the mod log channel."""
+    # Check for a dedicated automod log channel first
+    logChannelId = await getConfig(guildId, "automodLogChannel")
+    
+    # Fall back to general mod log if no automod channel
+    if not logChannelId:
+        logChannelId = await getConfig(guildId, "modLogChannel")
     
     if not logChannelId:
         return
@@ -33,3 +39,4 @@ async def sendModLog(bot, guildId, user, channel, rule, messageContent=None, att
         
     except Exception as e:
         print(f"Failed to send mod log: {e}")
+

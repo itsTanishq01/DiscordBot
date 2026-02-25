@@ -7,13 +7,13 @@ class MyHelp(commands.HelpCommand):
     async def send_bot_help(self, mapping):
         embed = discord.Embed(title="🤖 Bot Commands", color=embedColor)
         
-        ps_cogs = {"Projects", "Sprints", "Tasks", "Team", "Workload", "Dashboards", "Ingestion", "Automation", "DevPerms"}
+        ps_cogs = {"Projects", "Tasks", "DevPerms"}
         bug_cogs = {"Bugs"}
         checklist_cogs = {"Checklists"}
         
         automod_cmds = {"spam", "attachment", "mention", "msglimit", "linkfilter", "wordfilter", "exempt", "setthreshold"}
         mod_cmds = {"kick", "ban", "unban", "mute", "unmute", "purge", "warn", "warnings", "clearwarnings"}
-        config_cmds = {"config", "modlog", "prefix", "setroles", "setperm", "listperms"}
+        config_cmds = {"config", "modlog", "automodlog", "prefix", "setroles", "setperm", "listperms"}
         util_cmds = {"ping", "lock", "unlock", "slowmode", "whois", "exemptchannel", "unexemptchannel", "listexemptions", "help"}
         
         grouped_commands = {
@@ -122,13 +122,13 @@ class CustomHelp(commands.Cog):
                 "Checklists": []
             }
             
-            ps_cogs = {"Projects", "Sprints", "Tasks", "Team", "Workload", "Dashboards", "Ingestion", "Automation", "DevPerms"}
+            ps_cogs = {"Projects", "Tasks", "DevPerms"}
             bug_cogs = {"Bugs"}
             checklist_cogs = {"Checklists"}
             
             automod_cmds = {"spam", "attachment", "mention", "msglimit", "linkfilter", "wordfilter", "exempt", "setthreshold"}
             mod_cmds = {"kick", "ban", "unban", "mute", "unmute", "purge", "warn", "warnings", "clearwarnings"}
-            config_cmds = {"config", "modlog", "prefix", "setroles", "setperm", "listperms"}
+            config_cmds = {"config", "modlog", "automodlog", "prefix", "setroles", "setperm", "listperms"}
             util_cmds = {"ping", "lock", "unlock", "slowmode", "whois", "exemptchannel", "unexemptchannel", "listexemptions", "help"}
             
             for cmd in self.bot.tree.walk_commands():
