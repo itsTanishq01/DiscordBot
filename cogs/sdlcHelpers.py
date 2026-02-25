@@ -1,29 +1,22 @@
 import discord
-from database import getActiveProject, getTeamRole, getConfig
+from database import getActiveProject, getConfig
 from config import embedColor
 
 # ─────────────────────────────────────────────
 # Configurable Permission Groups
 # ─────────────────────────────────────────────
 
-VALID_ROLES = {'admin', 'lead', 'developer', 'qa', 'viewer'}
-
-DEFAULT_GROUP_ROLES = {
-    'bugs':       ['developer', 'lead', 'admin'],
-    'checklists': ['developer', 'lead', 'admin'],
-    'projects':   ['lead', 'admin'],
-    'tasks':      ['developer', 'lead', 'admin'],
-}
-
-VALID_GROUPS = set(DEFAULT_GROUP_ROLES.keys())
+VALID_GROUPS = {'bugs', 'checklists', 'projects', 'tasks'}
 
 
 async def getGroupRoles(guildId, group):
-    """Get the allowed roles for a command group. Checks DB for overrides, falls back to defaults."""
+    """Get the allowed Discord role IDs for a command group.
+    Returns a list of role ID strings, or empty list (= everyone allowed).
+    """
     val = await getConfig(guildId, f"devperm_{group}")
     if val:
-        return [r.strip() for r in val.split(",") if r.strip() in VALID_ROLES]
-    return DEFAULT_GROUP_ROLES.get(group, ['developer', 'lead', 'admin'])
+        return [r.strip() for r in val.split(",") if r.strip()]
+    return []  # empty = no restrictions (everyone can use)
 
 
 async def requireActiveProject(interaction):
@@ -39,36 +32,39 @@ async def requireActiveProject(interaction):
     return project
 
 
-async def requireRole(interaction, allowed_roles):
-    """Check if user has one of the explicitly allowed SDLC roles.
+async def requireRole(interaction, allowed_role_ids):
+    """Check if user has one of the allowed Discord roles.
 
     Args:
         interaction: Discord interaction
-        allowed_roles: str or list of str — exact role(s) that can use this command.
-                       e.g. 'developer' or ['developer', 'lead', 'admin']
+        allowed_role_ids: list of Discord role ID strings.
+                          If empty, everyone is allowed.
 
     Discord server admins always pass as a fallback.
     """
-    if isinstance(allowed_roles, str):
-        allowed_roles = [allowed_roles]
-
-    user_role = await getTeamRole(interaction.guild_id, str(interaction.user.id))
-
-    if user_role and user_role in allowed_roles:
+    # If no roles configured, everyone can use it
+    if not allowed_role_ids:
         return True
 
-    # Discord admin fallback
+    # Discord admin always passes
     if interaction.user.guild_permissions.administrator:
         return True
 
-    role_names = ", ".join([r.capitalize() for r in allowed_roles])
-    error_msg = f"Requires one of: **{role_names}** (or Discord Admin)."
-    
+    # Check if user has any of the allowed roles
+    user_role_ids = {str(role.id) for role in interaction.user.roles}
+    for role_id in allowed_role_ids:
+        if role_id in user_role_ids:
+            return True
+
+    # Build a nice error message with @role mentions
+    role_mentions = ", ".join([f"<@&{rid}>" for rid in allowed_role_ids])
+    error_msg = f"❌ You need one of these roles: {role_mentions}"
+
     if interaction.response.is_done():
         await interaction.followup.send(error_msg, ephemeral=True)
     else:
         await interaction.response.send_message(error_msg, ephemeral=True)
-        
+
     return False
 
 
@@ -118,7 +114,6 @@ TASK_STATUSES = ['backlog', 'todo', 'in_progress', 'blocked', 'review', 'done']
 BUG_STATUSES = ['new', 'acknowledged', 'in_progress', 'needs_qa', 'closed']
 BUG_SEVERITIES = ['critical', 'medium', 'minor']
 TASK_PRIORITIES = ['critical', 'high', 'medium', 'low']
-SPRINT_STATUSES = ['planning', 'active', 'closed']
 
 # ─────────────────────────────────────────────
 # Emoji Maps
@@ -128,7 +123,6 @@ STATUS_EMOJI = {
     'backlog': '📥', 'todo': '📋', 'in_progress': '🔨',
     'blocked': '🚫', 'review': '🔍', 'done': '✅',
     'new': '🆕', 'acknowledged': '👀', 'needs_qa': '🧪', 'closed': '⬛',
-    'planning': '📋', 'active': '🟢',
 }
 
 SEVERITY_EMOJI = {'critical': '🔴', 'medium': '🟡', 'minor': '🟠'}
