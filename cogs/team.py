@@ -34,10 +34,13 @@ class Team(commands.Cog):
     team_group = app_commands.Group(name="team", description="Manage SDLC team roles")
 
     async def cog_app_command_error(self, interaction: discord.Interaction, error):
+        msg = f"Error: {error}"
         if isinstance(error, app_commands.MissingPermissions):
-            await interaction.response.send_message("Missing permissions.", ephemeral=True)
+            msg = "Missing permissions."
+        if interaction.response.is_done():
+            await interaction.followup.send(msg, ephemeral=True)
         else:
-            await interaction.response.send_message(f"Error: {error}", ephemeral=True)
+            await interaction.response.send_message(msg, ephemeral=True)
 
     # ── /team assign ──────────────────────────────
     @team_group.command(name="assign", description="Assign an SDLC role to a member")
@@ -45,6 +48,7 @@ class Team(commands.Cog):
     @app_commands.choices(role=ROLE_CHOICES)
     async def team_assign(self, interaction: discord.Interaction,
                           member: discord.Member, role: app_commands.Choice[str]):
+        await interaction.response.defer(ephemeral=False)
         if not await requireRole(interaction, ['admin']):
             return
 
@@ -58,18 +62,19 @@ class Team(commands.Cog):
         )
         embed.add_field(name="Role", value=f"{emoji} {role.value.capitalize()}", inline=True)
         embed.add_field(name="Assigned by", value=interaction.user.mention, inline=True)
-        await interaction.response.send_message(embed=embed)
+        await interaction.followup.send(embed=embed)
 
     # ── /team unassign ────────────────────────────
     @team_group.command(name="unassign", description="Remove a member's SDLC role")
     @app_commands.describe(member="Member whose role should be removed")
     async def team_unassign(self, interaction: discord.Interaction, member: discord.Member):
+        await interaction.response.defer(ephemeral=False)
         if not await requireRole(interaction, ['admin']):
             return
 
         current = await getTeamRole(interaction.guild_id, str(member.id))
         if not current:
-            await interaction.response.send_message(
+            await interaction.followup.send(
                 f"{member.mention} has no SDLC role assigned.", ephemeral=True
             )
             return
@@ -83,15 +88,16 @@ class Team(commands.Cog):
         )
         embed.add_field(name="Previous Role", value=f"{ROLE_EMOJI.get(current, '')} {current.capitalize()}", inline=True)
         embed.add_field(name="Removed by", value=interaction.user.mention, inline=True)
-        await interaction.response.send_message(embed=embed)
+        await interaction.followup.send(embed=embed)
 
     # ── /team list ────────────────────────────────
     @team_group.command(name="list", description="View all SDLC team members grouped by role")
     async def team_list(self, interaction: discord.Interaction):
+        await interaction.response.defer(ephemeral=False)
         members = await getTeamMembers(interaction.guild_id)
 
         if not members:
-            await interaction.response.send_message(
+            await interaction.followup.send(
                 "No SDLC team members yet. Use `/team assign` to add members.", ephemeral=True
             )
             return
@@ -123,15 +129,16 @@ class Team(commands.Cog):
             total += len(user_ids)
 
         embed.set_footer(text=f"{total} member(s) total")
-        await interaction.response.send_message(embed=embed)
+        await interaction.followup.send(embed=embed)
 
     # ── /team myrole ──────────────────────────────
     @team_group.command(name="myrole", description="Check your current SDLC role")
     async def team_myrole(self, interaction: discord.Interaction):
+        await interaction.response.defer(ephemeral=True)
         role = await getTeamRole(interaction.guild_id, str(interaction.user.id))
 
         if not role:
-            await interaction.response.send_message(
+            await interaction.followup.send(
                 "You don't have an SDLC role yet. Ask an Admin to assign you one with `/team assign`.",
                 ephemeral=True
             )
@@ -153,7 +160,7 @@ class Team(commands.Cog):
             'viewer':    "View tasks, bugs, and project status (read-only).",
         }
         embed.add_field(name="Permissions", value=permissions_map.get(role, "Unknown"), inline=False)
-        await interaction.response.send_message(embed=embed, ephemeral=True)
+        await interaction.followup.send(embed=embed, ephemeral=True)
 
 
 async def setup(bot):

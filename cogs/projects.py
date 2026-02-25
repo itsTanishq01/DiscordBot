@@ -4,9 +4,10 @@ from discord import app_commands
 from discord.ext import commands
 from database import (
     createProject, getProject, getProjects, deleteProject,
-    setActiveProject, getActiveProject, hasTeamPermission, logAudit
+    setActiveProject, getActiveProject, logAudit
 )
 from config import embedColor
+from cogs.sdlcHelpers import requireRole
 
 
 class Projects(commands.Cog):
@@ -16,10 +17,13 @@ class Projects(commands.Cog):
     project_group = app_commands.Group(name="project", description="Manage projects")
 
     async def cog_app_command_error(self, interaction: discord.Interaction, error):
+        msg = f"Error: {error}"
         if isinstance(error, app_commands.MissingPermissions):
-            await interaction.response.send_message("❌ Missing permissions.", ephemeral=True)
+            msg = "❌ Missing permissions."
+        if interaction.response.is_done():
+            await interaction.followup.send(msg, ephemeral=True)
         else:
-            await interaction.response.send_message(f"Error: {error}", ephemeral=True)
+            await interaction.response.send_message(msg, ephemeral=True)
 
     @project_group.command(name="new", description="Create project(s). Comma-separate names for bulk creation.")
     @app_commands.describe(
@@ -27,14 +31,13 @@ class Projects(commands.Cog):
         description="Description (applies to single project only)"
     )
     async def project_new(self, interaction: discord.Interaction, name: str, description: str = ""):
-        if not await hasTeamPermission(interaction.guild_id, str(interaction.user.id), 'lead'):
-            if not interaction.user.guild_permissions.administrator:
-                await interaction.response.send_message("❌ Requires **Lead** role or Admin.", ephemeral=True)
-                return
+        await interaction.response.defer(ephemeral=False)
+        if not await requireRole(interaction, ['lead', 'admin']):
+            return
 
         names = [n.strip() for n in name.split(",") if n.strip()]
         if not names:
-            await interaction.response.send_message("❌ No valid names provided.", ephemeral=True)
+            await interaction.followup.send("❌ No valid names provided.", ephemeral=True)
             return
 
         now = int(time.time())
@@ -80,16 +83,17 @@ class Projects(commands.Cog):
             embed.title = "⚠ No Projects Created"
             embed.color = 0xFFAA00
 
-        await interaction.response.send_message(embed=embed)
+        await interaction.followup.send(embed=embed)
 
     @project_group.command(name="list", description="List all projects")
     async def project_list(self, interaction: discord.Interaction):
+        await interaction.response.defer(ephemeral=False)
         projects = await getProjects(interaction.guild_id)
         active = await getActiveProject(interaction.guild_id)
         active_id = active['id'] if active else None
 
         if not projects:
-            await interaction.response.send_message("No projects yet. Create one with `/project new`.", ephemeral=True)
+            await interaction.followup.send("No projects yet. Create one with `/project new`.", ephemeral=True)
             return
 
         embed = discord.Embed(title="📋 Projects", color=embedColor)
@@ -99,29 +103,29 @@ class Projects(commands.Cog):
             desc = f" — {p['description']}" if p['description'] else ""
             lines.append(f"`#{p['id']}` **{p['name']}**{desc}{marker}")
         embed.description = "\n".join(lines)
-        await interaction.response.send_message(embed=embed)
+        await interaction.followup.send(embed=embed)
 
     @project_group.command(name="set", description="Set the active project")
     @app_commands.describe(project_id="Project ID to make active")
     async def project_set(self, interaction: discord.Interaction, project_id: int):
+        await interaction.response.defer(ephemeral=False)
         project = await getProject(project_id)
         if not project or str(project['guild_id']) != str(interaction.guild_id):
-            await interaction.response.send_message("❌ Project not found.", ephemeral=True)
+            await interaction.followup.send("❌ Project not found.", ephemeral=True)
             return
         await setActiveProject(interaction.guild_id, project_id)
-        await interaction.response.send_message(f"✅ Active project set to **{project['name']}** (`#{project_id}`).")
+        await interaction.followup.send(f"✅ Active project set to **{project['name']}** (`#{project_id}`).")
 
     @project_group.command(name="delete", description="Delete a project (cascades tasks, bugs, sprints)")
     @app_commands.describe(project_id="Project ID to delete")
     async def project_delete(self, interaction: discord.Interaction, project_id: int):
-        if not await hasTeamPermission(interaction.guild_id, str(interaction.user.id), 'admin'):
-            if not interaction.user.guild_permissions.administrator:
-                await interaction.response.send_message("❌ Requires **Admin** role.", ephemeral=True)
-                return
+        await interaction.response.defer(ephemeral=False)
+        if not await requireRole(interaction, ['admin']):
+            return
 
         project = await getProject(project_id)
         if not project or str(project['guild_id']) != str(interaction.guild_id):
-            await interaction.response.send_message("❌ Project not found.", ephemeral=True)
+            await interaction.followup.send("❌ Project not found.", ephemeral=True)
             return
 
         pname = project['name']
@@ -134,7 +138,7 @@ class Projects(commands.Cog):
             await setActiveProject(interaction.guild_id, "")
             footer = " Active project cleared."
 
-        await interaction.response.send_message(f"🗑️ Deleted project **{pname}** and all related tasks/bugs/sprints.{footer}")
+        await interaction.followup.send(f"🗑️ Deleted project **{pname}** and all related tasks/bugs/sprints.{footer}")
 
 
 async def setup(bot):

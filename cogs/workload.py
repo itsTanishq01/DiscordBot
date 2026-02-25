@@ -15,16 +15,20 @@ class Workload(commands.Cog):
     wl_group = app_commands.Group(name="workload", description="Track developer workload")
 
     async def cog_app_command_error(self, interaction: discord.Interaction, error):
+        msg = f"Error: {error}"
         if isinstance(error, app_commands.MissingPermissions):
-            await interaction.response.send_message("Missing permissions.", ephemeral=True)
+            msg = "Missing permissions."
+        if interaction.response.is_done():
+            await interaction.followup.send(msg, ephemeral=True)
         else:
-            await interaction.response.send_message(f"Error: {error}", ephemeral=True)
+            await interaction.response.send_message(msg, ephemeral=True)
 
     # ── /workload check ───────────────────────────
     @wl_group.command(name="check", description="Check workload for yourself or another member")
     @app_commands.describe(member="Member to check (defaults to you)")
     async def workload_check(self, interaction: discord.Interaction,
                              member: discord.Member = None):
+        await interaction.response.defer(ephemeral=False)
         target = member or interaction.user
 
         # If checking someone else, require lead role
@@ -71,17 +75,18 @@ class Workload(commands.Cog):
         elif ratio >= 1.0:
             embed.set_footer(text="Consider completing existing items before assigning more.")
 
-        await interaction.response.send_message(embed=embed)
+        await interaction.followup.send(embed=embed)
 
     # ── /workload team ────────────────────────────
     @wl_group.command(name="team", description="View workload across all team members")
     async def workload_team(self, interaction: discord.Interaction):
+        await interaction.response.defer(ephemeral=False)
         if not await requireRole(interaction, ['lead', 'admin']):
             return
 
         members = await getTeamMembers(interaction.guild_id)
         if not members:
-            await interaction.response.send_message(
+            await interaction.followup.send(
                 "No team members. Use `/team assign` to add them.", ephemeral=True
             )
             return
@@ -138,7 +143,7 @@ class Workload(commands.Cog):
             text=f"{len(workloads)} members | {total_active} active items | {overloaded} overloaded"
         )
 
-        await interaction.response.send_message(embed=embed)
+        await interaction.followup.send(embed=embed)
 
     # ── /workload settings ────────────────────────
     @wl_group.command(name="settings", description="View or update workload settings")
@@ -148,6 +153,7 @@ class Workload(commands.Cog):
     )
     async def workload_settings(self, interaction: discord.Interaction,
                                 max_tasks: int = None, wip_limit: int = None):
+        await interaction.response.defer(ephemeral=False)
         if not await requireRole(interaction, ['admin']):
             return
 
@@ -185,7 +191,7 @@ class Workload(commands.Cog):
         else:
             embed.description = "*Pass `max_tasks` or `wip_limit` to update.*"
 
-        await interaction.response.send_message(embed=embed)
+        await interaction.followup.send(embed=embed)
 
 
 async def setup(bot):

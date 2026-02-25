@@ -20,14 +20,18 @@ class Dashboards(commands.Cog):
     dash_group = app_commands.Group(name="dashboard", description="Visual project summaries")
 
     async def cog_app_command_error(self, interaction: discord.Interaction, error):
+        msg = f"Error: {error}"
         if isinstance(error, app_commands.MissingPermissions):
-            await interaction.response.send_message("Missing permissions.", ephemeral=True)
+            msg = "Missing permissions."
+        if interaction.response.is_done():
+            await interaction.followup.send(msg, ephemeral=True)
         else:
-            await interaction.response.send_message(f"Error: {error}", ephemeral=True)
+            await interaction.response.send_message(msg, ephemeral=True)
 
     # ── /dashboard project ────────────────────────
     @dash_group.command(name="project", description="Project health overview")
     async def dash_project(self, interaction: discord.Interaction):
+        await interaction.response.defer(ephemeral=False)
         project = await requireActiveProject(interaction)
         if not project:
             return
@@ -95,18 +99,19 @@ class Dashboards(commands.Cog):
         else:
             embed.set_footer(text="\U0001f7e0 Early stages \u2014 keep going!")
 
-        await interaction.response.send_message(embed=embed)
+        await interaction.followup.send(embed=embed)
 
     # ── /dashboard sprint ─────────────────────────
     @dash_group.command(name="sprint", description="Active sprint progress and burndown")
     async def dash_sprint(self, interaction: discord.Interaction):
+        await interaction.response.defer(ephemeral=False)
         project = await requireActiveProject(interaction)
         if not project:
             return
 
         sprint = await getActiveSprint(interaction.guild_id, project['id'])
         if not sprint:
-            await interaction.response.send_message(
+            await interaction.followup.send(
                 "No active sprint. Start one with `/sprint activate`.", ephemeral=True
             )
             return
@@ -117,7 +122,7 @@ class Dashboards(commands.Cog):
 
         total = len(tasks)
         if total == 0:
-            await interaction.response.send_message(
+            await interaction.followup.send(
                 f"Sprint **{sprint['name']}** has no tasks yet. Add tasks with `/task new`.",
                 ephemeral=True
             )
@@ -187,11 +192,12 @@ class Dashboards(commands.Cog):
         if warnings:
             embed.add_field(name="Warnings", value="\n".join(warnings), inline=False)
 
-        await interaction.response.send_message(embed=embed)
+        await interaction.followup.send(embed=embed)
 
     # ── /dashboard my_day ─────────────────────────
     @dash_group.command(name="my_day", description="Your daily priorities")
     async def dash_my_day(self, interaction: discord.Interaction):
+        await interaction.response.defer(ephemeral=False)
         project = await requireActiveProject(interaction)
         if not project:
             return
@@ -219,7 +225,7 @@ class Dashboards(commands.Cog):
         if not active_tasks and not active_bugs:
             embed.description = "\u2705 **All clear!** No active tasks or bugs assigned to you."
             embed.set_footer(text="Pick up new work with /task new or check /workload team")
-            await interaction.response.send_message(embed=embed)
+            await interaction.followup.send(embed=embed)
             return
 
         # Priority order for tasks
@@ -268,7 +274,7 @@ class Dashboards(commands.Cog):
         else:
             embed.set_footer(text="\U0001f4aa Focus on the top items first!")
 
-        await interaction.response.send_message(embed=embed)
+        await interaction.followup.send(embed=embed)
 
 
 async def setup(bot):

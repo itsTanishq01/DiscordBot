@@ -38,10 +38,13 @@ class Tasks(commands.Cog):
     task_group = app_commands.Group(name="task", description="Manage tasks (Kanban)")
 
     async def cog_app_command_error(self, interaction: discord.Interaction, error):
+        msg = f"Error: {error}"
         if isinstance(error, app_commands.MissingPermissions):
-            await interaction.response.send_message("Missing permissions.", ephemeral=True)
+            msg = "Missing permissions."
+        if interaction.response.is_done():
+            await interaction.followup.send(msg, ephemeral=True)
         else:
-            await interaction.response.send_message(f"Error: {error}", ephemeral=True)
+            await interaction.response.send_message(msg, ephemeral=True)
 
     # ── /task new ──────────────────────────────────
     @task_group.command(name="new", description="Create task(s). Comma-separate titles for bulk.")
@@ -108,19 +111,20 @@ class Tasks(commands.Cog):
     @app_commands.choices(status=STATUS_CHOICES)
     async def task_status(self, interaction: discord.Interaction, task_id: int,
                           status: app_commands.Choice[str]):
+        await interaction.response.defer(ephemeral=False)
         if not await requireRole(interaction, ['developer', 'lead', 'admin']):
             return
 
         task = await getTask(task_id)
         if not task or str(task['guild_id']) != str(interaction.guild_id):
-            await interaction.response.send_message("Task not found.", ephemeral=True)
+            await interaction.followup.send("Task not found.", ephemeral=True)
             return
 
         new_status = status.value
         old_status = task['status']
 
         if old_status == new_status:
-            await interaction.response.send_message(
+            await interaction.followup.send(
                 f"Task `#{task_id}` is already **{statusDisplay(new_status)}**.", ephemeral=True
             )
             return
@@ -132,7 +136,7 @@ class Tasks(commands.Cog):
             current_wip = await getTasks(interaction.guild_id, task['project_id'],
                                          {'status': 'in_progress'})
             if len(current_wip) >= wip_limit:
-                await interaction.response.send_message(
+                await interaction.followup.send(
                     f"\u26a0\ufe0f **WIP limit reached!** {len(current_wip)}/{wip_limit} tasks already in progress.\n"
                     f"Finish or move existing tasks before starting new ones.",
                     ephemeral=True
@@ -157,24 +161,25 @@ class Tasks(commands.Cog):
         # Notify assignee if different from the person changing status
         if task.get('assignee_id') and task['assignee_id'] != str(interaction.user.id):
             embed.set_footer(text=f"Assignee notified")
-            await interaction.response.send_message(
+            await interaction.followup.send(
                 content=f"<@{task['assignee_id']}>",
                 embed=embed
             )
         else:
-            await interaction.response.send_message(embed=embed)
+            await interaction.followup.send(embed=embed)
 
     # ── /task assign ──────────────────────────────
     @task_group.command(name="assign", description="Assign or reassign a task")
     @app_commands.describe(task_id="Task ID", assignee="Member to assign")
     async def task_assign(self, interaction: discord.Interaction, task_id: int,
                           assignee: discord.Member):
+        await interaction.response.defer(ephemeral=False)
         if not await requireRole(interaction, ['lead', 'admin']):
             return
 
         task = await getTask(task_id)
         if not task or str(task['guild_id']) != str(interaction.guild_id):
-            await interaction.response.send_message("Task not found.", ephemeral=True)
+            await interaction.followup.send("Task not found.", ephemeral=True)
             return
 
         now = int(time.time())
@@ -188,7 +193,7 @@ class Tasks(commands.Cog):
             description=f"**{task['title']}** \u2192 {assignee.mention}",
             color=embedColor
         )
-        await interaction.response.send_message(embed=embed)
+        await interaction.followup.send(embed=embed)
 
     # ── /task list ────────────────────────────────
     @task_group.command(name="list", description="List tasks with optional filters")
@@ -202,6 +207,7 @@ class Tasks(commands.Cog):
                         status: app_commands.Choice[str] = None,
                         priority: app_commands.Choice[str] = None,
                         assignee: discord.Member = None):
+        await interaction.response.defer(ephemeral=False)
         project = await requireActiveProject(interaction)
         if not project:
             return
@@ -227,7 +233,7 @@ class Tasks(commands.Cog):
                 if assignee:
                     parts.append(f"assignee={assignee.display_name}")
                 filter_desc = f" (filters: {', '.join(parts)})"
-            await interaction.response.send_message(
+            await interaction.followup.send(
                 f"No tasks found{filter_desc}. Create one with `/task new`.", ephemeral=True
             )
             return
@@ -274,18 +280,19 @@ class Tasks(commands.Cog):
             embed.description = "\n".join(lines)
 
         embed.set_footer(text=f"{len(tasks)} task(s) total")
-        await interaction.response.send_message(embed=embed)
+        await interaction.followup.send(embed=embed)
 
     # ── /task delete ──────────────────────────────
     @task_group.command(name="delete", description="Delete a task")
     @app_commands.describe(task_id="Task ID to delete")
     async def task_delete(self, interaction: discord.Interaction, task_id: int):
+        await interaction.response.defer(ephemeral=False)
         if not await requireRole(interaction, ['lead', 'admin']):
             return
 
         task = await getTask(task_id)
         if not task or str(task['guild_id']) != str(interaction.guild_id):
-            await interaction.response.send_message("Task not found.", ephemeral=True)
+            await interaction.followup.send("Task not found.", ephemeral=True)
             return
 
         title = task['title']
@@ -293,15 +300,16 @@ class Tasks(commands.Cog):
         await logAudit(interaction.guild_id, "delete", "task", task_id,
                        str(interaction.user.id), f"Deleted task: {title}", int(time.time()))
 
-        await interaction.response.send_message(f"\U0001f5d1\ufe0f Deleted task `#{task_id}`: **{title}**")
+        await interaction.followup.send(f"\U0001f5d1\ufe0f Deleted task `#{task_id}`: **{title}**")
 
     # ── /task view ────────────────────────────────
     @task_group.command(name="view", description="View task details")
     @app_commands.describe(task_id="Task ID to view")
     async def task_view(self, interaction: discord.Interaction, task_id: int):
+        await interaction.response.defer(ephemeral=False)
         task = await getTask(task_id)
         if not task or str(task['guild_id']) != str(interaction.guild_id):
-            await interaction.response.send_message("Task not found.", ephemeral=True)
+            await interaction.followup.send("Task not found.", ephemeral=True)
             return
 
         embed = discord.Embed(
@@ -349,18 +357,19 @@ class Tasks(commands.Cog):
                 comment_lines.insert(0, f"*Showing last 5 of {len(comments)} comments:*")
             embed.add_field(name="Comments", value="\n".join(comment_lines), inline=False)
 
-        await interaction.response.send_message(embed=embed)
+        await interaction.followup.send(embed=embed)
 
     # ── /task comment ─────────────────────────────
     @task_group.command(name="comment", description="Add a comment to a task")
     @app_commands.describe(task_id="Task ID", text="Comment text")
     async def task_comment(self, interaction: discord.Interaction, task_id: int, text: str):
+        await interaction.response.defer(ephemeral=False)
         if not await requireRole(interaction, ['developer', 'lead', 'admin']):
             return
 
         task = await getTask(task_id)
         if not task or str(task['guild_id']) != str(interaction.guild_id):
-            await interaction.response.send_message("Task not found.", ephemeral=True)
+            await interaction.followup.send("Task not found.", ephemeral=True)
             return
 
         now = int(time.time())
@@ -374,23 +383,24 @@ class Tasks(commands.Cog):
             color=embedColor
         )
         embed.set_footer(text=f"Comment #{cid} by {interaction.user.display_name}")
-        await interaction.response.send_message(embed=embed)
+        await interaction.followup.send(embed=embed)
 
     # ── /task linkbug ─────────────────────────────
     @task_group.command(name="linkbug", description="Link a bug to a task")
     @app_commands.describe(task_id="Task ID", bug_id="Bug ID to link")
     async def task_linkbug(self, interaction: discord.Interaction, task_id: int, bug_id: int):
+        await interaction.response.defer(ephemeral=False)
         if not await requireRole(interaction, ['developer', 'lead', 'admin']):
             return
 
         task = await getTask(task_id)
         if not task or str(task['guild_id']) != str(interaction.guild_id):
-            await interaction.response.send_message("Task not found.", ephemeral=True)
+            await interaction.followup.send("Task not found.", ephemeral=True)
             return
 
         bug = await getBug(bug_id)
         if not bug or str(bug['guild_id']) != str(interaction.guild_id):
-            await interaction.response.send_message("Bug not found.", ephemeral=True)
+            await interaction.followup.send("Bug not found.", ephemeral=True)
             return
 
         await linkTaskBug(task_id, bug_id)
@@ -403,7 +413,7 @@ class Tasks(commands.Cog):
             description=f"Task `#{task_id}` **{task['title']}**\n\u2194\ufe0f Bug `#{bug_id}` **{bug['title']}**",
             color=embedColor
         )
-        await interaction.response.send_message(embed=embed)
+        await interaction.followup.send(embed=embed)
 
 
 async def setup(bot):

@@ -35,10 +35,13 @@ class Bugs(commands.Cog):
     bug_group = app_commands.Group(name="bug", description="Manage and track bugs")
 
     async def cog_app_command_error(self, interaction: discord.Interaction, error):
+        msg = f"Error: {error}"
         if isinstance(error, app_commands.MissingPermissions):
-            await interaction.response.send_message("Missing permissions.", ephemeral=True)
+            msg = "Missing permissions."
+        if interaction.response.is_done():
+            await interaction.followup.send(msg, ephemeral=True)
         else:
-            await interaction.response.send_message(f"Error: {error}", ephemeral=True)
+            await interaction.response.send_message(msg, ephemeral=True)
 
     # ── /bug report ───────────────────────────────
     @bug_group.command(name="report", description="Report bug(s). Comma-separate titles for bulk.")
@@ -105,19 +108,20 @@ class Bugs(commands.Cog):
     @app_commands.choices(status=STATUS_CHOICES)
     async def bug_status(self, interaction: discord.Interaction, bug_id: int,
                          status: app_commands.Choice[str]):
+        await interaction.response.defer(ephemeral=False)
         if not await requireRole(interaction, ['developer', 'lead', 'admin']):
             return
 
         bug = await getBug(bug_id)
         if not bug or str(bug['guild_id']) != str(interaction.guild_id):
-            await interaction.response.send_message("Bug not found.", ephemeral=True)
+            await interaction.followup.send("Bug not found.", ephemeral=True)
             return
 
         new_status = status.value
         old_status = bug['status']
 
         if old_status == new_status:
-            await interaction.response.send_message(
+            await interaction.followup.send(
                 f"Bug `#{bug_id}` is already **{statusDisplay(new_status)}**.", ephemeral=True
             )
             return
@@ -139,21 +143,22 @@ class Bugs(commands.Cog):
         # Notify assignee if different from the person changing status
         if bug.get('assignee_id') and bug['assignee_id'] != str(interaction.user.id):
             embed.set_footer(text="Assignee notified")
-            await interaction.response.send_message(content=f"<@{bug['assignee_id']}>", embed=embed)
+            await interaction.followup.send(content=f"<@{bug['assignee_id']}>", embed=embed)
         else:
-            await interaction.response.send_message(embed=embed)
+            await interaction.followup.send(embed=embed)
 
     # ── /bug assign ───────────────────────────────
     @bug_group.command(name="assign", description="Assign or reassign a bug")
     @app_commands.describe(bug_id="Bug ID", assignee="Member to assign")
     async def bug_assign(self, interaction: discord.Interaction, bug_id: int,
                          assignee: discord.Member):
+        await interaction.response.defer(ephemeral=False)
         if not await requireRole(interaction, ['lead', 'admin']):
             return
 
         bug = await getBug(bug_id)
         if not bug or str(bug['guild_id']) != str(interaction.guild_id):
-            await interaction.response.send_message("Bug not found.", ephemeral=True)
+            await interaction.followup.send("Bug not found.", ephemeral=True)
             return
 
         now = int(time.time())
@@ -167,7 +172,7 @@ class Bugs(commands.Cog):
             color=embedColor
         )
         embed.add_field(name="Severity", value=severityDisplay(bug['severity']), inline=True)
-        await interaction.response.send_message(embed=embed)
+        await interaction.followup.send(embed=embed)
 
     # ── /bug list ─────────────────────────────────
     @bug_group.command(name="list", description="List bugs with optional filters")
@@ -181,6 +186,7 @@ class Bugs(commands.Cog):
                        status: app_commands.Choice[str] = None,
                        severity: app_commands.Choice[str] = None,
                        assignee: discord.Member = None):
+        await interaction.response.defer(ephemeral=False)
         project = await requireActiveProject(interaction)
         if not project:
             return
@@ -204,7 +210,7 @@ class Bugs(commands.Cog):
             if assignee:
                 parts.append(f"assignee={assignee.display_name}")
             filter_desc = f" (filters: {', '.join(parts)})" if parts else ""
-            await interaction.response.send_message(
+            await interaction.followup.send(
                 f"No bugs found{filter_desc}. Report one with `/bug report`.", ephemeral=True
             )
             return
@@ -252,15 +258,16 @@ class Bugs(commands.Cog):
             embed.description = "\n".join(lines)
 
         embed.set_footer(text=f"{len(bugs)} bug(s) total")
-        await interaction.response.send_message(embed=embed)
+        await interaction.followup.send(embed=embed)
 
     # ── /bug view ─────────────────────────────────
     @bug_group.command(name="view", description="View bug details")
     @app_commands.describe(bug_id="Bug ID to view")
     async def bug_view(self, interaction: discord.Interaction, bug_id: int):
+        await interaction.response.defer(ephemeral=False)
         bug = await getBug(bug_id)
         if not bug or str(bug['guild_id']) != str(interaction.guild_id):
-            await interaction.response.send_message("Bug not found.", ephemeral=True)
+            await interaction.followup.send("Bug not found.", ephemeral=True)
             return
 
         embed = discord.Embed(
@@ -293,22 +300,23 @@ class Bugs(commands.Cog):
             task_list = ", ".join([f"`#{tid}`" for tid in linked_tasks])
             embed.add_field(name="Linked Tasks", value=task_list, inline=False)
 
-        await interaction.response.send_message(embed=embed)
+        await interaction.followup.send(embed=embed)
 
     # ── /bug close ────────────────────────────────
     @bug_group.command(name="close", description="Close a bug (QA verified)")
     @app_commands.describe(bug_id="Bug ID to close")
     async def bug_close(self, interaction: discord.Interaction, bug_id: int):
+        await interaction.response.defer(ephemeral=False)
         if not await requireRole(interaction, ['qa', 'developer', 'lead', 'admin']):
             return
 
         bug = await getBug(bug_id)
         if not bug or str(bug['guild_id']) != str(interaction.guild_id):
-            await interaction.response.send_message("Bug not found.", ephemeral=True)
+            await interaction.followup.send("Bug not found.", ephemeral=True)
             return
 
         if bug['status'] == 'closed':
-            await interaction.response.send_message(
+            await interaction.followup.send(
                 f"Bug `#{bug_id}` is already closed.", ephemeral=True
             )
             return
@@ -325,7 +333,7 @@ class Bugs(commands.Cog):
         )
         embed.add_field(name="Severity", value=severityDisplay(bug['severity']), inline=True)
         embed.add_field(name="Closed by", value=interaction.user.mention, inline=True)
-        await interaction.response.send_message(embed=embed)
+        await interaction.followup.send(embed=embed)
 
 
 async def setup(bot):

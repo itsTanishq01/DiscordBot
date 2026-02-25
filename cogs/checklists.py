@@ -18,10 +18,13 @@ class Checklists(commands.Cog):
     cl_group = app_commands.Group(name="checklist", description="Manage checklists")
 
     async def cog_app_command_error(self, interaction: discord.Interaction, error):
+        msg = f"Error: {error}"
         if isinstance(error, app_commands.MissingPermissions):
-            await interaction.response.send_message("Missing permissions.", ephemeral=True)
+            msg = "Missing permissions."
+        if interaction.response.is_done():
+            await interaction.followup.send(msg, ephemeral=True)
         else:
-            await interaction.response.send_message(f"Error: {error}", ephemeral=True)
+            await interaction.response.send_message(msg, ephemeral=True)
 
     # ── /checklist new ────────────────────────────
     @cl_group.command(name="new", description="Create a new checklist")
@@ -31,6 +34,7 @@ class Checklists(commands.Cog):
     )
     async def checklist_new(self, interaction: discord.Interaction, title: str,
                             task_id: int = None):
+        await interaction.response.defer(ephemeral=False)
         if not await requireRole(interaction, ['developer', 'lead', 'admin']):
             return
 
@@ -48,7 +52,7 @@ class Checklists(commands.Cog):
         if task_id:
             embed.add_field(name="Linked Task", value=f"`#{task_id}`", inline=True)
         embed.set_footer(text="Add items with /checklist add")
-        await interaction.response.send_message(embed=embed)
+        await interaction.followup.send(embed=embed)
 
     # ── /checklist add ────────────────────────────
     @cl_group.command(name="add", description="Add item(s) to a checklist. Comma-separate for bulk.")
@@ -104,9 +108,10 @@ class Checklists(commands.Cog):
     @cl_group.command(name="view", description="View a checklist and its items")
     @app_commands.describe(checklist_id="Checklist ID to view")
     async def checklist_view(self, interaction: discord.Interaction, checklist_id: int):
+        await interaction.response.defer(ephemeral=False)
         checklist = await getChecklist(checklist_id)
         if not checklist or str(checklist['guild_id']) != str(interaction.guild_id):
-            await interaction.response.send_message("Checklist not found.", ephemeral=True)
+            await interaction.followup.send("Checklist not found.", ephemeral=True)
             return
 
         items = await getChecklistItems(checklist_id)
@@ -145,12 +150,13 @@ class Checklists(commands.Cog):
             embed.add_field(name="Linked Task", value=f"`#{checklist['task_id']}`", inline=True)
         embed.add_field(name="Created by", value=f"<@{checklist['created_by']}>", inline=True)
         embed.set_footer(text=f"Checklist ID: {checklist_id}")
-        await interaction.response.send_message(embed=embed)
+        await interaction.followup.send(embed=embed)
 
     # ── /checklist toggle ─────────────────────────
     @cl_group.command(name="toggle", description="Toggle a checklist item's completion")
     @app_commands.describe(item_id="Item ID to toggle")
     async def checklist_toggle(self, interaction: discord.Interaction, item_id: int):
+        await interaction.response.defer(ephemeral=False)
         if not await requireRole(interaction, ['developer', 'lead', 'admin']):
             return
 
@@ -158,25 +164,26 @@ class Checklists(commands.Cog):
         new_state = await toggleChecklistItem(item_id, str(interaction.user.id), now)
 
         if new_state is None:
-            await interaction.response.send_message("Item not found.", ephemeral=True)
+            await interaction.followup.send("Item not found.", ephemeral=True)
             return
 
         status = "\u2705 Completed" if new_state else "\u2b1c Unchecked"
         await logAudit(interaction.guild_id, "toggle", "checklist_item", item_id,
                        str(interaction.user.id), f"Toggled to: {status}", now)
 
-        await interaction.response.send_message(f"{status} \u2014 Item `#{item_id}`")
+        await interaction.followup.send(f"{status} \u2014 Item `#{item_id}`")
 
     # ── /checklist list ───────────────────────────
     @cl_group.command(name="list", description="List all active checklists")
     @app_commands.describe(show_archived="Show archived checklists instead")
     async def checklist_list(self, interaction: discord.Interaction,
                              show_archived: bool = False):
+        await interaction.response.defer(ephemeral=False)
         checklists = await getChecklists(interaction.guild_id, archived=show_archived)
 
         if not checklists:
             label = "archived" if show_archived else "active"
-            await interaction.response.send_message(
+            await interaction.followup.send(
                 f"No {label} checklists. Create one with `/checklist new`.", ephemeral=True
             )
             return
@@ -199,39 +206,41 @@ class Checklists(commands.Cog):
 
         embed.description = "\n".join(lines)
         embed.set_footer(text=f"{len(checklists)} checklist(s)")
-        await interaction.response.send_message(embed=embed)
+        await interaction.followup.send(embed=embed)
 
     # ── /checklist remove ─────────────────────────
     @cl_group.command(name="remove", description="Remove an item from a checklist")
     @app_commands.describe(item_id="Item ID to remove")
     async def checklist_remove(self, interaction: discord.Interaction, item_id: int):
+        await interaction.response.defer(ephemeral=False)
         if not await requireRole(interaction, ['developer', 'lead', 'admin']):
             return
 
         await removeChecklistItem(item_id)
-        await interaction.response.send_message(f"\U0001f5d1\ufe0f Removed item `#{item_id}`.")
+        await interaction.followup.send(f"\U0001f5d1\ufe0f Removed item `#{item_id}`.")
 
     # ── /checklist archive ────────────────────────
     @cl_group.command(name="archive", description="Archive a completed checklist")
     @app_commands.describe(checklist_id="Checklist ID to archive")
     async def checklist_archive(self, interaction: discord.Interaction, checklist_id: int):
+        await interaction.response.defer(ephemeral=False)
         if not await requireRole(interaction, ['lead', 'admin']):
             return
 
         checklist = await getChecklist(checklist_id)
         if not checklist or str(checklist['guild_id']) != str(interaction.guild_id):
-            await interaction.response.send_message("Checklist not found.", ephemeral=True)
+            await interaction.followup.send("Checklist not found.", ephemeral=True)
             return
 
         if checklist.get('archived'):
-            await interaction.response.send_message("Already archived.", ephemeral=True)
+            await interaction.followup.send("Already archived.", ephemeral=True)
             return
 
         await archiveChecklist(checklist_id)
         await logAudit(interaction.guild_id, "archive", "checklist", checklist_id,
                        str(interaction.user.id), f"Archived: {checklist['name']}", int(time.time()))
 
-        await interaction.response.send_message(
+        await interaction.followup.send(
             f"\U0001f4e6 Archived checklist **{checklist['name']}** (`#{checklist_id}`)."
         )
 

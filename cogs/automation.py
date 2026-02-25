@@ -38,10 +38,13 @@ class Automation(commands.Cog):
     audit_group = app_commands.Group(name="audit", description="Audit trail, stale detection, duplicates")
 
     async def cog_app_command_error(self, interaction: discord.Interaction, error):
+        msg = f"Error: {error}"
         if isinstance(error, app_commands.MissingPermissions):
-            await interaction.response.send_message("Missing permissions.", ephemeral=True)
+            msg = "Missing permissions."
+        if interaction.response.is_done():
+            await interaction.followup.send(msg, ephemeral=True)
         else:
-            await interaction.response.send_message(f"Error: {error}", ephemeral=True)
+            await interaction.response.send_message(msg, ephemeral=True)
 
     # ── /audit log ────────────────────────────────
     @audit_group.command(name="log", description="View recent audit trail")
@@ -55,6 +58,7 @@ class Automation(commands.Cog):
                         entity_type: app_commands.Choice[str] = None,
                         entity_id: int = None,
                         limit: int = 10):
+        await interaction.response.defer(ephemeral=False)
         limit = min(max(limit, 1), 25)
 
         et = entity_type.value if entity_type else None
@@ -67,7 +71,7 @@ class Automation(commands.Cog):
             if entity_id:
                 filters.append(f"id={entity_id}")
             filter_desc = f" ({', '.join(filters)})" if filters else ""
-            await interaction.response.send_message(
+            await interaction.followup.send(
                 f"No audit entries found{filter_desc}.", ephemeral=True
             )
             return
@@ -107,12 +111,13 @@ class Automation(commands.Cog):
             footer += f" | Filters: {', '.join(filter_parts)}"
         embed.set_footer(text=footer)
 
-        await interaction.response.send_message(embed=embed)
+        await interaction.followup.send(embed=embed)
 
     # ── /audit stale ──────────────────────────────
     @audit_group.command(name="stale", description="Find tasks and bugs not updated recently")
     @app_commands.describe(days="Items not updated in this many days (default: 7)")
     async def audit_stale(self, interaction: discord.Interaction, days: int = 7):
+        await interaction.response.defer(ephemeral=False)
         if not await requireRole(interaction, ['lead', 'admin']):
             return
 
@@ -149,7 +154,7 @@ class Automation(commands.Cog):
 
         if not stale_tasks and not stale_bugs:
             embed.description = f"\u2705 No stale items! Everything updated within {days} days."
-            await interaction.response.send_message(embed=embed)
+            await interaction.followup.send(embed=embed)
             return
 
         if stale_tasks:
@@ -186,11 +191,12 @@ class Automation(commands.Cog):
             )
 
         embed.set_footer(text=f"Threshold: {days} days | Project: {project['name']}")
-        await interaction.response.send_message(embed=embed)
+        await interaction.followup.send(embed=embed)
 
     # ── /audit duplicates ─────────────────────────
     @audit_group.command(name="duplicates", description="Detect potential duplicate bugs")
     async def audit_duplicates(self, interaction: discord.Interaction):
+        await interaction.response.defer(ephemeral=False)
         project = await requireActiveProject(interaction)
         if not project:
             return
@@ -199,7 +205,7 @@ class Automation(commands.Cog):
         open_bugs = [b for b in all_bugs if b['status'] != 'closed']
 
         if len(open_bugs) < 2:
-            await interaction.response.send_message(
+            await interaction.followup.send(
                 "Need at least 2 open bugs to check for duplicates.", ephemeral=True
             )
             return
@@ -242,7 +248,7 @@ class Automation(commands.Cog):
         if not duplicates:
             embed.description = "\u2705 No potential duplicates found among open bugs."
             embed.set_footer(text=f"Scanned {len(open_bugs)} open bugs")
-            await interaction.response.send_message(embed=embed)
+            await interaction.followup.send(embed=embed)
             return
 
         # Sort by similarity descending
@@ -266,7 +272,7 @@ class Automation(commands.Cog):
         embed.set_footer(
             text=f"{len(duplicates)} potential duplicate(s) | {len(open_bugs)} open bugs scanned"
         )
-        await interaction.response.send_message(embed=embed)
+        await interaction.followup.send(embed=embed)
 
 
 async def setup(bot):
