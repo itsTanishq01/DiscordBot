@@ -6,13 +6,23 @@ from config import embedColor
 class MyHelp(commands.HelpCommand):
     async def send_bot_help(self, mapping):
         embed = discord.Embed(title="🤖 Bot Commands", color=embedColor)
+        
+        dev_cogs = {"Projects", "Sprints", "Tasks", "Bugs", "Team", "Checklists", "Workload", "Dashboards", "Ingestion", "Automation"}
+        dev_commands = []
+        
         for cog, commands_list in mapping.items():
             filtered = await self.filter_commands(commands_list, sort=True)
             if filtered:
                 cog_name = cog.qualified_name if cog else "No Category"
-                command_signatures = [f"`{c.name}`" for c in filtered]
-                if command_signatures:
-                    embed.add_field(name=cog_name, value=", ".join(command_signatures), inline=False)
+                if cog_name in dev_cogs:
+                    dev_commands.extend([f"`{c.name}`" for c in filtered])
+                else:
+                    command_signatures = [f"`{c.name}`" for c in filtered]
+                    if command_signatures:
+                        embed.add_field(name=cog_name, value=", ".join(command_signatures), inline=False)
+        
+        if dev_commands:
+            embed.add_field(name="Dev", value=", ".join(dev_commands), inline=False)
         
         embed.set_footer(text=f"Type {self.context.prefix}help <command> for more info.")
         await self.get_destination().send(embed=embed)
@@ -71,9 +81,14 @@ class CustomHelp(commands.Cog):
             embed = discord.Embed(title="🤖 Bot Slash Commands", description="Here are the available slash commands. Use `/help <command>` for details.", color=embedColor)
             
             commands_dict = {}
+            dev_cogs = {"Projects", "Sprints", "Tasks", "Bugs", "Team", "Checklists", "Workload", "Dashboards", "Ingestion", "Automation"}
+            
             for cmd in self.bot.tree.walk_commands():
                 if isinstance(cmd, app_commands.Command):
                     cog_name = cmd.binding.__class__.__name__ if cmd.binding else "General"
+                    if cog_name in dev_cogs:
+                        cog_name = "Dev"
+                        
                     if cog_name not in commands_dict:
                         commands_dict[cog_name] = []
                     commands_dict[cog_name].append(f"`/{cmd.qualified_name}`")
