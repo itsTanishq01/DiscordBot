@@ -1,0 +1,12 @@
+# Plan 3.1 + 3.2 Summary (combined — single file target)
+- Created `cogs/tasks.py` with 8 commands in Tasks cog
+- Commands: /task new (bulk), /task status, /task assign, /task list, /task delete, /task view, /task comment, /task linkbug
+- Bulk creation: comma-separated titles, shared priority/assignee applied to all
+- Kanban board view: /task list groups by status columns when no status filter
+- WIP limit enforcement: blocks /task status → in_progress when limit reached
+- Assignee notification: mentions assignee on status change (if not the changer)
+- Task view: shows comments (last 5), linked bugs, Discord timestamps
+- Uses shared helpers: requireActiveProject, requireRole, parseBulkNames, buildBulkEmbed
+- Choice dropdowns: 6 STATUS_CHOICES, 4 PRIORITY_CHOICES
+- Registered `cogs.tasks` in main.py cogExtensions
+- All syntax validated ✓
