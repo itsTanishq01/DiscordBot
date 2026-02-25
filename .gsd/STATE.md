@@ -1,38 +1,36 @@
 # STATE.md
 
-> **Last Updated**: 2026-02-25T16:32:00+05:30
+> **Last Updated**: 2026-02-25T16:52:00+05:30
 
 ## Current Position
 - **Milestone**: SDLC Bot v1.0
-- **Phase**: 1 (completed)
-- **Status**: Verified ✓
+- **Phase**: 2 — Project & Sprint Management
+- **Status**: Planning complete, ready for execution
 
-## Last Session Summary
-Phase 1 (Database Schema & Foundation) executed successfully.
-- 3 plans, 9 tasks completed across 2 waves
-- 10 new database tables created
-- 45 new CRUD/helper functions added
-- 5 new config keys added
-- Backwards compatibility confirmed — all original functions intact
+## Plans Created
+- `1-PLAN.md` — Projects cog with bulk creation (wave 1)
+- `2-PLAN.md` — Sprints cog with lifecycle + bulk (wave 1)
+- `3-PLAN.md` — Shared SDLC helpers + verification (wave 2)
 
-## Files Modified
-- `database.py` — Extended from 260 lines to ~755 lines (10 tables + 45 functions)
-- `config.py` — Added 5 SDLC config keys
+## Bulk Operations Design
+User requirement: "add multiple things together like bug1, bug2, bug3"
+- **Pattern**: Comma-separated names in the `name` parameter
+- **Example**: `/project new name:"Bug Tracker, Auth System, Dashboard"`
+- **Behavior**: Creates all items, shows summary embed with successes + errors
+- **Helper**: `parseBulkNames()` and `buildBulkEmbed()` in sdlcHelpers.py for reuse in Phase 3+ (tasks, bugs)
 
 ## Context
-- Existing bot: AbyssBot (Python/discord.py 2.3.2, asyncpg, Supabase PostgreSQL)
-- Hosting: Render (free tier)
+- Phase 1 complete: 10 tables, 45 functions in database.py
+- Active document: ROADMAP.md
 
 ## Decisions Made
-- Framework: Python / discord.py (extend existing bot)
-- Database: Extend existing asyncpg/Supabase setup
-- Architecture: Cog-per-feature pattern
-- SDLC roles are bot-managed (DB), not Discord server roles
-- ROLE_HIERARCHY: admin(5) > lead(4) > developer(3) > qa(2) > viewer(1)
-- All IDs: TEXT, all timestamps: BIGINT
+- Bulk via comma-separated string (Discord slash commands don't support array params)
+- SDLC permission: hasTeamPermission with Discord admin fallback
+- Shared helpers module (not a cog) for DRY
+- Status/emoji constants centralized in sdlcHelpers.py
 
 ## Blockers
 - None
 
 ## Next Action
-- `/plan 2` — Create Phase 2 (Project & Sprint Management) execution plan
+- `/execute 2` — Execute Phase 2 plans
