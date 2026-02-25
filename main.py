@@ -48,6 +48,8 @@ cogExtensions = [
     "cogs.utility",
     "cogs.permissions",
     "cogs.customHelp",
+    "cogs.projects",
+    "cogs.sprints",
 ]
 
 @bot.event
