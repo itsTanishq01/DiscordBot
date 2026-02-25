@@ -37,9 +37,13 @@ async def requireRole(interaction, allowed_roles):
         return True
 
     role_names = ", ".join([r.capitalize() for r in allowed_roles])
-    await interaction.response.send_message(
-        f"Requires one of: **{role_names}** (or Discord Admin).", ephemeral=True
-    )
+    error_msg = f"Requires one of: **{role_names}** (or Discord Admin)."
+    
+    if interaction.response.is_done():
+        await interaction.followup.send(error_msg, ephemeral=True)
+    else:
+        await interaction.response.send_message(error_msg, ephemeral=True)
+        
     return False
 
 
