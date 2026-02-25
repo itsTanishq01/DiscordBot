@@ -53,6 +53,7 @@ cogExtensions = [
     "cogs.tasks",
     "cogs.bugs",
     "cogs.team",
+    "cogs.checklists",
 ]
 
 @bot.event
