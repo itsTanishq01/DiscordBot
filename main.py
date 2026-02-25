@@ -57,6 +57,7 @@ cogExtensions = [
     "cogs.workload",
     "cogs.dashboards",
     "cogs.ingestion",
+    "cogs.automation",
 ]
 
 @bot.event
