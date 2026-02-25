@@ -10,15 +10,15 @@ class MyHelp(commands.HelpCommand):
         dev_cogs = {"Projects", "Sprints", "Tasks", "Bugs", "Team", "Checklists", "Workload", "Dashboards", "Ingestion", "Automation"}
         mod_cogs = {"Moderation", "Warnings"}
         
-        filter_cmds = {"spam", "attachment", "mention", "msglimit", "linkfilter", "wordfilter", "exempt"}
+        mod_cmds = {"spam", "attachment", "mention", "msglimit", "linkfilter", "wordfilter", "exempt", "kick", "ban", "unban", "mute", "unmute", "purge", "warn", "warnings", "clearwarnings", "setthreshold"}
         config_cmds = {"config", "modlog", "prefix", "setroles", "setperm", "listperms"}
+        util_cmds = {"ping", "lock", "unlock", "slowmode", "whois", "exemptchannel", "unexemptchannel", "listexemptions", "help"}
         
         grouped_commands = {
-            "Dev": [],
-            "Filters & Automod": [],
-            "Configuration": [],
-            "Moderation": [],
-            "Utility & General": []
+            "1️⃣ Moderation & Automod": [],
+            "2️⃣ Configuration & Setup": [],
+            "3️⃣ Utility & General": [],
+            "Dev": []
         }
         
         for cog, commands_list in mapping.items():
@@ -28,16 +28,16 @@ class MyHelp(commands.HelpCommand):
                 
                 for c in filtered:
                     cmd_base = c.qualified_name.split()[0]
-                    cat_name = "Utility & General"
+                    cat_name = "3️⃣ Utility & General"
                     
                     if cog_name in dev_cogs:
                         cat_name = "Dev"
-                    elif cog_name in mod_cogs:
-                        cat_name = "Moderation"
-                    elif cmd_base in filter_cmds:
-                        cat_name = "Filters & Automod"
+                    elif cog_name in mod_cogs or cmd_base in mod_cmds:
+                        cat_name = "1️⃣ Moderation & Automod"
                     elif cmd_base in config_cmds:
-                        cat_name = "Configuration"
+                        cat_name = "2️⃣ Configuration & Setup"
+                    elif cmd_base in util_cmds or cmd_base == "help":
+                        cat_name = "3️⃣ Utility & General"
                     
                     grouped_commands[cat_name].append(f"`{c.name}`")
                 
@@ -102,33 +102,33 @@ class CustomHelp(commands.Cog):
             embed = discord.Embed(title="🤖 Bot Slash Commands", description="Here are the available slash commands. Use `/help <command>` for details.", color=embedColor)
             
             grouped_commands = {
-                "Dev": [],
-                "Filters & Automod": [],
-                "Configuration": [],
-                "Moderation": [],
-                "Utility & General": []
+                "1️⃣ Moderation & Automod": [],
+                "2️⃣ Configuration & Setup": [],
+                "3️⃣ Utility & General": [],
+                "Dev": []
             }
             
             dev_cogs = {"Projects", "Sprints", "Tasks", "Bugs", "Team", "Checklists", "Workload", "Dashboards", "Ingestion", "Automation"}
             mod_cogs = {"Moderation", "Warnings"}
             
-            filter_cmds = {"spam", "attachment", "mention", "msglimit", "linkfilter", "wordfilter", "exempt"}
+            mod_cmds = {"spam", "attachment", "mention", "msglimit", "linkfilter", "wordfilter", "exempt", "kick", "ban", "unban", "mute", "unmute", "purge", "warn", "warnings", "clearwarnings", "setthreshold"}
             config_cmds = {"config", "modlog", "prefix", "setroles", "setperm", "listperms"}
+            util_cmds = {"ping", "lock", "unlock", "slowmode", "whois", "exemptchannel", "unexemptchannel", "listexemptions", "help"}
             
             for cmd in self.bot.tree.walk_commands():
                 if isinstance(cmd, app_commands.Command):
                     cog_name = cmd.binding.__class__.__name__ if cmd.binding else "General"
                     cmd_base = cmd.qualified_name.split()[0]
                     
-                    cat_name = "Utility & General"
+                    cat_name = "3️⃣ Utility & General"
                     if cog_name in dev_cogs:
                         cat_name = "Dev"
-                    elif cog_name in mod_cogs:
-                        cat_name = "Moderation"
-                    elif cmd_base in filter_cmds:
-                        cat_name = "Filters & Automod"
+                    elif cog_name in mod_cogs or cmd_base in mod_cmds:
+                        cat_name = "1️⃣ Moderation & Automod"
                     elif cmd_base in config_cmds:
-                        cat_name = "Configuration"
+                        cat_name = "2️⃣ Configuration & Setup"
+                    elif cmd_base in util_cmds or cmd_base == "help":
+                        cat_name = "3️⃣ Utility & General"
                         
                     grouped_commands[cat_name].append(f"`/{cmd.qualified_name}`")
                     
