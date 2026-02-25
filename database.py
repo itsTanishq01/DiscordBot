@@ -7,6 +7,8 @@ from config import defaultConfig
 
 pool = None
 
+ROLE_HIERARCHY = {'admin': 5, 'lead': 4, 'developer': 3, 'qa': 2, 'viewer': 1}
+
 async def initDb():
     global pool
     db_url = os.getenv("DATABASE_URL")
@@ -154,6 +156,69 @@ async def initDb():
                     tags TEXT DEFAULT '[]',
                     created_at BIGINT NOT NULL,
                     updated_at BIGINT NOT NULL
+                );
+            """)
+
+            await conn.execute("""
+                CREATE TABLE IF NOT EXISTS team_roles (
+                    guild_id TEXT NOT NULL,
+                    user_id TEXT NOT NULL,
+                    role TEXT NOT NULL DEFAULT 'viewer',
+                    PRIMARY KEY (guild_id, user_id)
+                );
+            """)
+
+            await conn.execute("""
+                CREATE TABLE IF NOT EXISTS checklists (
+                    id SERIAL PRIMARY KEY,
+                    guild_id TEXT NOT NULL,
+                    task_id INTEGER REFERENCES tasks(id) ON DELETE SET NULL,
+                    name TEXT NOT NULL,
+                    created_by TEXT NOT NULL,
+                    archived BOOLEAN DEFAULT FALSE,
+                    created_at BIGINT NOT NULL
+                );
+            """)
+
+            await conn.execute("""
+                CREATE TABLE IF NOT EXISTS checklist_items (
+                    id SERIAL PRIMARY KEY,
+                    checklist_id INTEGER REFERENCES checklists(id) ON DELETE CASCADE,
+                    text TEXT NOT NULL,
+                    completed BOOLEAN DEFAULT FALSE,
+                    toggled_by TEXT,
+                    toggled_at BIGINT
+                );
+            """)
+
+            await conn.execute("""
+                CREATE TABLE IF NOT EXISTS task_comments (
+                    id SERIAL PRIMARY KEY,
+                    task_id INTEGER REFERENCES tasks(id) ON DELETE CASCADE,
+                    user_id TEXT NOT NULL,
+                    content TEXT NOT NULL,
+                    created_at BIGINT NOT NULL
+                );
+            """)
+
+            await conn.execute("""
+                CREATE TABLE IF NOT EXISTS task_bug_links (
+                    task_id INTEGER REFERENCES tasks(id) ON DELETE CASCADE,
+                    bug_id INTEGER REFERENCES bugs(id) ON DELETE CASCADE,
+                    PRIMARY KEY (task_id, bug_id)
+                );
+            """)
+
+            await conn.execute("""
+                CREATE TABLE IF NOT EXISTS audit_log (
+                    id SERIAL PRIMARY KEY,
+                    guild_id TEXT NOT NULL,
+                    action TEXT NOT NULL,
+                    entity_type TEXT NOT NULL,
+                    entity_id INTEGER,
+                    user_id TEXT NOT NULL,
+                    details TEXT DEFAULT '',
+                    created_at BIGINT NOT NULL
                 );
             """)
 
@@ -477,4 +542,170 @@ async def getBugs(guildId, projectId, filters=None):
 async def closeBug(bugId, updatedAt):
     async with pool.acquire() as conn:
         await conn.execute("UPDATE bugs SET status = 'closed', updated_at = $2 WHERE id = $1", int(bugId), int(updatedAt))
+
+# ─────────────────────────────────────────────
+# Team Role CRUD
+# ─────────────────────────────────────────────
+
+VALID_ROLES = {'admin', 'lead', 'developer', 'qa', 'viewer'}
+
+async def setTeamRole(guildId, userId, role):
+    if role not in VALID_ROLES:
+        raise ValueError(f"Invalid role: {role}. Must be one of: {', '.join(sorted(VALID_ROLES))}")
+    async with pool.acquire() as conn:
+        await conn.execute("""
+            INSERT INTO team_roles (guild_id, user_id, role)
+            VALUES ($1, $2, $3)
+            ON CONFLICT (guild_id, user_id)
+            DO UPDATE SET role = $3
+        """, str(guildId), str(userId), role)
+
+async def removeTeamRole(guildId, userId):
+    async with pool.acquire() as conn:
+        await conn.execute("DELETE FROM team_roles WHERE guild_id = $1 AND user_id = $2", str(guildId), str(userId))
+
+async def getTeamRole(guildId, userId):
+    async with pool.acquire() as conn:
+        val = await conn.fetchval("SELECT role FROM team_roles WHERE guild_id = $1 AND user_id = $2", str(guildId), str(userId))
+        return val
+
+async def getTeamMembers(guildId, role=None):
+    async with pool.acquire() as conn:
+        if role:
+            rows = await conn.fetch("SELECT user_id, role FROM team_roles WHERE guild_id = $1 AND role = $2", str(guildId), role)
+        else:
+            rows = await conn.fetch("SELECT user_id, role FROM team_roles WHERE guild_id = $1", str(guildId))
+        return [dict(row) for row in rows]
+
+async def hasTeamPermission(guildId, userId, requiredRole):
+    userRole = await getTeamRole(guildId, userId)
+    if userRole is None:
+        return False
+    return ROLE_HIERARCHY.get(userRole, 0) >= ROLE_HIERARCHY.get(requiredRole, 0)
+
+# ─────────────────────────────────────────────
+# Checklist CRUD
+# ─────────────────────────────────────────────
+
+async def createChecklist(guildId, name, createdBy, taskId, createdAt):
+    async with pool.acquire() as conn:
+        row = await conn.fetchval("""
+            INSERT INTO checklists (guild_id, name, created_by, task_id, created_at)
+            VALUES ($1, $2, $3, $4, $5) RETURNING id
+        """, str(guildId), name, str(createdBy), int(taskId) if taskId else None, int(createdAt))
+        return row
+
+async def getChecklist(checklistId):
+    async with pool.acquire() as conn:
+        row = await conn.fetchrow("SELECT * FROM checklists WHERE id = $1", int(checklistId))
+        return dict(row) if row else None
+
+async def getChecklists(guildId, archived=False):
+    async with pool.acquire() as conn:
+        rows = await conn.fetch("""
+            SELECT * FROM checklists WHERE guild_id = $1 AND archived = $2 ORDER BY created_at DESC
+        """, str(guildId), archived)
+        return [dict(row) for row in rows]
+
+async def archiveChecklist(checklistId):
+    async with pool.acquire() as conn:
+        await conn.execute("UPDATE checklists SET archived = TRUE WHERE id = $1", int(checklistId))
+
+async def addChecklistItem(checklistId, text):
+    async with pool.acquire() as conn:
+        row = await conn.fetchval("""
+            INSERT INTO checklist_items (checklist_id, text) VALUES ($1, $2) RETURNING id
+        """, int(checklistId), text)
+        return row
+
+async def toggleChecklistItem(itemId, userId, toggledAt):
+    async with pool.acquire() as conn:
+        row = await conn.fetchrow("""
+            UPDATE checklist_items SET completed = NOT completed, toggled_by = $2, toggled_at = $3
+            WHERE id = $1 RETURNING completed
+        """, int(itemId), str(userId), int(toggledAt))
+        return row['completed'] if row else None
+
+async def removeChecklistItem(itemId):
+    async with pool.acquire() as conn:
+        await conn.execute("DELETE FROM checklist_items WHERE id = $1", int(itemId))
+
+async def getChecklistItems(checklistId):
+    async with pool.acquire() as conn:
+        rows = await conn.fetch("""
+            SELECT * FROM checklist_items WHERE checklist_id = $1 ORDER BY id ASC
+        """, int(checklistId))
+        return [dict(row) for row in rows]
+
+# ─────────────────────────────────────────────
+# Task Comment CRUD
+# ─────────────────────────────────────────────
+
+async def addTaskComment(taskId, userId, content, createdAt):
+    async with pool.acquire() as conn:
+        row = await conn.fetchval("""
+            INSERT INTO task_comments (task_id, user_id, content, created_at)
+            VALUES ($1, $2, $3, $4) RETURNING id
+        """, int(taskId), str(userId), content, int(createdAt))
+        return row
+
+async def getTaskComments(taskId):
+    async with pool.acquire() as conn:
+        rows = await conn.fetch("""
+            SELECT * FROM task_comments WHERE task_id = $1 ORDER BY created_at ASC
+        """, int(taskId))
+        return [dict(row) for row in rows]
+
+# ─────────────────────────────────────────────
+# Task-Bug Link CRUD
+# ─────────────────────────────────────────────
+
+async def linkTaskBug(taskId, bugId):
+    async with pool.acquire() as conn:
+        await conn.execute("""
+            INSERT INTO task_bug_links (task_id, bug_id) VALUES ($1, $2) ON CONFLICT DO NOTHING
+        """, int(taskId), int(bugId))
+
+async def unlinkTaskBug(taskId, bugId):
+    async with pool.acquire() as conn:
+        await conn.execute("DELETE FROM task_bug_links WHERE task_id = $1 AND bug_id = $2", int(taskId), int(bugId))
+
+async def getLinkedBugs(taskId):
+    async with pool.acquire() as conn:
+        rows = await conn.fetch("SELECT bug_id FROM task_bug_links WHERE task_id = $1", int(taskId))
+        return [row['bug_id'] for row in rows]
+
+async def getLinkedTasks(bugId):
+    async with pool.acquire() as conn:
+        rows = await conn.fetch("SELECT task_id FROM task_bug_links WHERE bug_id = $1", int(bugId))
+        return [row['task_id'] for row in rows]
+
+# ─────────────────────────────────────────────
+# Audit Log CRUD
+# ─────────────────────────────────────────────
+
+async def logAudit(guildId, action, entityType, entityId, userId, details, createdAt):
+    async with pool.acquire() as conn:
+        await conn.execute("""
+            INSERT INTO audit_log (guild_id, action, entity_type, entity_id, user_id, details, created_at)
+            VALUES ($1, $2, $3, $4, $5, $6, $7)
+        """, str(guildId), action, entityType, int(entityId) if entityId else None, str(userId), details, int(createdAt))
+
+async def getAuditLog(guildId, entityType=None, entityId=None, limit=50):
+    async with pool.acquire() as conn:
+        query = "SELECT * FROM audit_log WHERE guild_id = $1"
+        params = [str(guildId)]
+        idx = 2
+        if entityType:
+            query += f" AND entity_type = ${idx}"
+            params.append(entityType)
+            idx += 1
+        if entityId:
+            query += f" AND entity_id = ${idx}"
+            params.append(int(entityId))
+            idx += 1
+        query += f" ORDER BY created_at DESC LIMIT ${idx}"
+        params.append(limit)
+        rows = await conn.fetch(query, *params)
+        return [dict(row) for row in rows]
 
