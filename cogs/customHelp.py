@@ -8,21 +8,38 @@ class MyHelp(commands.HelpCommand):
         embed = discord.Embed(title="🤖 Bot Commands", color=embedColor)
         
         dev_cogs = {"Projects", "Sprints", "Tasks", "Bugs", "Team", "Checklists", "Workload", "Dashboards", "Ingestion", "Automation"}
-        dev_commands = []
+        filter_cogs = {"SpamFilter", "AttachmentFilter", "MentionFilter", "MessageLimitFilter", "LinkFilter", "WordFilter"}
+        config_cogs = {"SlashCommands", "PrefixCommands", "Permissions", "Audit"}
+        mod_cogs = {"Moderation", "Warnings"}
+        
+        grouped_commands = {
+            "Dev": [],
+            "Filters & Automod": [],
+            "Configuration": [],
+            "Moderation": [],
+            "Utility & General": []
+        }
         
         for cog, commands_list in mapping.items():
             filtered = await self.filter_commands(commands_list, sort=True)
             if filtered:
                 cog_name = cog.qualified_name if cog else "No Category"
+                
+                cat_name = "Utility & General"
                 if cog_name in dev_cogs:
-                    dev_commands.extend([f"`{c.name}`" for c in filtered])
-                else:
-                    command_signatures = [f"`{c.name}`" for c in filtered]
-                    if command_signatures:
-                        embed.add_field(name=cog_name, value=", ".join(command_signatures), inline=False)
-        
-        if dev_commands:
-            embed.add_field(name="Dev", value=", ".join(dev_commands), inline=False)
+                    cat_name = "Dev"
+                elif cog_name in filter_cogs:
+                    cat_name = "Filters & Automod"
+                elif cog_name in config_cogs:
+                    cat_name = "Configuration"
+                elif cog_name in mod_cogs:
+                    cat_name = "Moderation"
+                
+                grouped_commands[cat_name].extend([f"`{c.name}`" for c in filtered])
+                
+        for cat_name, cmd_list in grouped_commands.items():
+            if cmd_list:
+                embed.add_field(name=cat_name, value=", ".join(cmd_list), inline=False)
         
         embed.set_footer(text=f"Type {self.context.prefix}help <command> for more info.")
         await self.get_destination().send(embed=embed)
@@ -80,22 +97,38 @@ class CustomHelp(commands.Cog):
         if not command_name:
             embed = discord.Embed(title="🤖 Bot Slash Commands", description="Here are the available slash commands. Use `/help <command>` for details.", color=embedColor)
             
-            commands_dict = {}
+            grouped_commands = {
+                "Dev": [],
+                "Filters & Automod": [],
+                "Configuration": [],
+                "Moderation": [],
+                "Utility & General": []
+            }
+            
             dev_cogs = {"Projects", "Sprints", "Tasks", "Bugs", "Team", "Checklists", "Workload", "Dashboards", "Ingestion", "Automation"}
+            filter_cogs = {"SpamFilter", "AttachmentFilter", "MentionFilter", "MessageLimitFilter", "LinkFilter", "WordFilter"}
+            config_cogs = {"SlashCommands", "PrefixCommands", "Permissions", "Audit"}
+            mod_cogs = {"Moderation", "Warnings"}
             
             for cmd in self.bot.tree.walk_commands():
                 if isinstance(cmd, app_commands.Command):
                     cog_name = cmd.binding.__class__.__name__ if cmd.binding else "General"
-                    if cog_name in dev_cogs:
-                        cog_name = "Dev"
-                        
-                    if cog_name not in commands_dict:
-                        commands_dict[cog_name] = []
-                    commands_dict[cog_name].append(f"`/{cmd.qualified_name}`")
                     
-            for cog_name, cmd_list in commands_dict.items():
+                    cat_name = "Utility & General"
+                    if cog_name in dev_cogs:
+                        cat_name = "Dev"
+                    elif cog_name in filter_cogs:
+                        cat_name = "Filters & Automod"
+                    elif cog_name in config_cogs:
+                        cat_name = "Configuration"
+                    elif cog_name in mod_cogs:
+                        cat_name = "Moderation"
+                        
+                    grouped_commands[cat_name].append(f"`/{cmd.qualified_name}`")
+                    
+            for cat_name, cmd_list in grouped_commands.items():
                 if cmd_list:
-                    embed.add_field(name=cog_name, value=", ".join(cmd_list), inline=False)
+                    embed.add_field(name=cat_name, value=", ".join(cmd_list), inline=False)
                     
             await interaction.response.send_message(embed=embed, ephemeral=False)
             return
