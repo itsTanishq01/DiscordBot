@@ -191,6 +191,7 @@ async def initDb():
                 CREATE TABLE IF NOT EXISTS checklist_items (
                     id SERIAL PRIMARY KEY,
                     checklist_id INTEGER REFERENCES checklists(id) ON DELETE CASCADE,
+                    item_seq INTEGER NOT NULL DEFAULT 0,
                     text TEXT NOT NULL,
                     completed BOOLEAN DEFAULT FALSE,
                     toggled_by TEXT,
@@ -284,6 +285,26 @@ async def initDb():
                         """, gid, entity_type, count)
 
                     print(f"[Migration] {table}: migrated {len(rows)} rows across {len(guild_counters)} guilds")
+
+            # ── Migration: add item_seq to checklist_items ──
+            item_seq_exists = await conn.fetchval("""
+                SELECT EXISTS (
+                    SELECT 1 FROM information_schema.columns
+                    WHERE table_name = 'checklist_items' AND column_name = 'item_seq'
+                )
+            """)
+            if not item_seq_exists:
+                print("[Migration] Adding item_seq to checklist_items...")
+                await conn.execute("ALTER TABLE checklist_items ADD COLUMN item_seq INTEGER NOT NULL DEFAULT 0")
+                # Backfill: assign per-checklist sequential IDs
+                rows = await conn.fetch("SELECT id, checklist_id FROM checklist_items ORDER BY checklist_id, id")
+                cl_counters = {}
+                for row in rows:
+                    cid = row['checklist_id']
+                    cl_counters[cid] = cl_counters.get(cid, 0) + 1
+                    await conn.execute("UPDATE checklist_items SET item_seq = $1 WHERE id = $2",
+                                       cl_counters[cid], row['id'])
+                print(f"[Migration] checklist_items: migrated {len(rows)} rows")
 
             # Remove sprint_id from tasks if it exists (sprints removed)
             sprint_col = await conn.fetchval("""
@@ -710,29 +731,39 @@ async def archiveChecklist(guildId, guildSeq):
     async with pool.acquire() as conn:
         await conn.execute("UPDATE checklists SET archived = TRUE WHERE guild_id = $1 AND guild_seq = $2", str(guildId), int(guildSeq))
 
+async def deleteChecklist(guildId, guildSeq):
+    async with pool.acquire() as conn:
+        await conn.execute("DELETE FROM checklists WHERE guild_id = $1 AND guild_seq = $2", str(guildId), int(guildSeq))
+
 async def addChecklistItem(checklistId, text):
     async with pool.acquire() as conn:
-        row = await conn.fetchval("""
-            INSERT INTO checklist_items (checklist_id, text) VALUES ($1, $2) RETURNING id
-        """, int(checklistId), text)
-        return row
+        # Per-checklist sequential numbering
+        maxSeq = await conn.fetchval(
+            "SELECT COALESCE(MAX(item_seq), 0) FROM checklist_items WHERE checklist_id = $1",
+            int(checklistId)
+        )
+        newSeq = maxSeq + 1
+        await conn.execute("""
+            INSERT INTO checklist_items (checklist_id, item_seq, text) VALUES ($1, $2, $3)
+        """, int(checklistId), newSeq, text)
+        return newSeq
 
-async def toggleChecklistItem(itemId, userId, toggledAt):
+async def toggleChecklistItem(checklistId, itemSeq, userId, toggledAt):
     async with pool.acquire() as conn:
         row = await conn.fetchrow("""
-            UPDATE checklist_items SET completed = NOT completed, toggled_by = $2, toggled_at = $3
-            WHERE id = $1 RETURNING completed
-        """, int(itemId), str(userId), int(toggledAt))
+            UPDATE checklist_items SET completed = NOT completed, toggled_by = $3, toggled_at = $4
+            WHERE checklist_id = $1 AND item_seq = $2 RETURNING completed
+        """, int(checklistId), int(itemSeq), str(userId), int(toggledAt))
         return row['completed'] if row else None
 
-async def removeChecklistItem(itemId):
+async def removeChecklistItem(checklistId, itemSeq):
     async with pool.acquire() as conn:
-        await conn.execute("DELETE FROM checklist_items WHERE id = $1", int(itemId))
+        await conn.execute("DELETE FROM checklist_items WHERE checklist_id = $1 AND item_seq = $2", int(checklistId), int(itemSeq))
 
 async def getChecklistItems(checklistId):
     async with pool.acquire() as conn:
         rows = await conn.fetch("""
-            SELECT * FROM checklist_items WHERE checklist_id = $1 ORDER BY id ASC
+            SELECT * FROM checklist_items WHERE checklist_id = $1 ORDER BY item_seq ASC
         """, int(checklistId))
         return [dict(row) for row in rows]
 

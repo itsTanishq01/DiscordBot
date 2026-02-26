@@ -3,7 +3,7 @@ import discord
 from discord import app_commands
 from discord.ext import commands
 from database import (
-    createChecklist, getChecklist, getChecklists, archiveChecklist,
+    createChecklist, getChecklist, getChecklists, archiveChecklist, deleteChecklist,
     addChecklistItem, toggleChecklistItem, removeChecklistItem,
     getChecklistItems, logAudit
 )
@@ -87,19 +87,19 @@ class Checklists(commands.Cog):
         errors = []
         for text in item_texts:
             try:
-                iid = await addChecklistItem(internal_id, text)
-                added.append((iid, text))
+                item_seq = await addChecklistItem(internal_id, text)
+                added.append((item_seq, text))
             except Exception as e:
                 errors.append(f"\u274c `{text}`: {e}")
 
         embed = discord.Embed(color=embedColor)
         if len(added) == 1:
-            iid, itext = added[0]
+            item_seq, itext = added[0]
             embed.title = "\u2795 Item Added"
-            embed.description = f"\u2b1c **{itext}** (ID: `{iid}`)"
+            embed.description = f"\u2b1c **{itext}** (Item `#{item_seq}`)"
         elif added:
             embed.title = f"\u2795 {len(added)} Items Added"
-            embed.description = "\n".join([f"\u2b1c **{itext}** (ID: `{iid}`)" for iid, itext in added])
+            embed.description = "\n".join([f"\u2b1c **{itext}** (Item `#{item_seq}`)" for item_seq, itext in added])
 
         if errors:
             embed.add_field(name="Errors", value="\n".join(errors), inline=False)
@@ -146,7 +146,7 @@ class Checklists(commands.Cog):
                 toggler = ""
                 if item.get('completed') and item.get('toggled_by'):
                     toggler = f" \u2014 <@{item['toggled_by']}>"
-                lines.append(f"{check} `#{item['id']}` {item['text']}{toggler}")
+                lines.append(f"{check} `#{item['item_seq']}` {item['text']}{toggler}")
 
             embed.description += "\n".join(lines)
 
@@ -156,26 +156,37 @@ class Checklists(commands.Cog):
         embed.set_footer(text=f"Checklist ID: #{checklist_id}")
         await interaction.followup.send(embed=embed)
 
-    # ── /checklist toggle ─────────────────────────
+    # ── /checklist toggle ─────────────────────
     @cl_group.command(name="toggle", description="Toggle a checklist item's completion")
-    @app_commands.describe(item_id="Item ID to toggle")
-    async def checklist_toggle(self, interaction: discord.Interaction, item_id: int):
+    @app_commands.describe(
+        checklist_id="Checklist ID",
+        item_number="Item number within the checklist"
+    )
+    async def checklist_toggle(self, interaction: discord.Interaction,
+                               checklist_id: int, item_number: int):
         await interaction.response.defer(ephemeral=False)
         if not await requireRole(interaction, await getGroupRoles(interaction.guild_id, 'checklists')):
             return
 
+        gid = interaction.guild_id
+        checklist = await getChecklist(gid, checklist_id)
+        if not checklist:
+            await interaction.followup.send("Checklist not found.", ephemeral=True)
+            return
+
         now = int(time.time())
-        new_state = await toggleChecklistItem(item_id, str(interaction.user.id), now)
+        new_state = await toggleChecklistItem(checklist['id'], item_number,
+                                              str(interaction.user.id), now)
 
         if new_state is None:
             await interaction.followup.send("Item not found.", ephemeral=True)
             return
 
         status = "\u2705 Completed" if new_state else "\u2b1c Unchecked"
-        await logAudit(interaction.guild_id, "toggle", "checklist_item", item_id,
-                       str(interaction.user.id), f"Toggled to: {status}", now)
+        await logAudit(gid, "toggle", "checklist_item", checklist_id,
+                       str(interaction.user.id), f"Item #{item_number} toggled to: {status}", now)
 
-        await interaction.followup.send(f"{status} \u2014 Item `#{item_id}`")
+        await interaction.followup.send(f"{status} \u2014 Checklist `#{checklist_id}` Item `#{item_number}`")
 
     # ── /checklist list ───────────────────────────
     @cl_group.command(name="list", description="List all active checklists")
@@ -212,16 +223,27 @@ class Checklists(commands.Cog):
         embed.set_footer(text=f"{len(checklists)} checklist(s)")
         await interaction.followup.send(embed=embed)
 
-    # ── /checklist remove ─────────────────────────
+    # ── /checklist remove ─────────────────────
     @cl_group.command(name="remove", description="Remove an item from a checklist")
-    @app_commands.describe(item_id="Item ID to remove")
-    async def checklist_remove(self, interaction: discord.Interaction, item_id: int):
+    @app_commands.describe(
+        checklist_id="Checklist ID",
+        item_number="Item number within the checklist"
+    )
+    async def checklist_remove(self, interaction: discord.Interaction,
+                               checklist_id: int, item_number: int):
         await interaction.response.defer(ephemeral=False)
         if not await requireRole(interaction, await getGroupRoles(interaction.guild_id, 'checklists')):
             return
 
-        await removeChecklistItem(item_id)
-        await interaction.followup.send(f"\U0001f5d1\ufe0f Removed item `#{item_id}`.")
+        gid = interaction.guild_id
+        checklist = await getChecklist(gid, checklist_id)
+        if not checklist:
+            await interaction.followup.send("Checklist not found.", ephemeral=True)
+            return
+
+        await removeChecklistItem(checklist['id'], item_number)
+        await interaction.followup.send(
+            f"\U0001f5d1\ufe0f Removed item `#{item_number}` from checklist `#{checklist_id}`.")
 
     # ── /checklist archive ────────────────────────
     @cl_group.command(name="archive", description="Archive a completed checklist")
@@ -247,6 +269,29 @@ class Checklists(commands.Cog):
 
         await interaction.followup.send(
             f"\U0001f4e6 Archived checklist **{checklist['name']}** (`#{checklist_id}`)."
+        )
+
+    # ── /checklist delete ─────────────────────
+    @cl_group.command(name="delete", description="Permanently delete a checklist and all its items")
+    @app_commands.describe(checklist_id="Checklist ID to delete")
+    async def checklist_delete(self, interaction: discord.Interaction, checklist_id: int):
+        await interaction.response.defer(ephemeral=False)
+        if not await requireRole(interaction, await getGroupRoles(interaction.guild_id, 'checklists')):
+            return
+
+        gid = interaction.guild_id
+        checklist = await getChecklist(gid, checklist_id)
+        if not checklist:
+            await interaction.followup.send("Checklist not found.", ephemeral=True)
+            return
+
+        name = checklist['name']
+        await deleteChecklist(gid, checklist_id)
+        await logAudit(gid, "delete", "checklist", checklist_id,
+                       str(interaction.user.id), f"Deleted: {name}", int(time.time()))
+
+        await interaction.followup.send(
+            f"\U0001f5d1\ufe0f Permanently deleted checklist **{name}** (`#{checklist_id}`) and all its items."
         )
 
 
