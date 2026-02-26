@@ -31,6 +31,40 @@ PRIORITY_CHOICES = [
 ]
 
 
+class TaskPaginator(discord.ui.View):
+    def __init__(self, pages, make_embed, author_id):
+        super().__init__(timeout=120)
+        self.pages = pages
+        self.make_embed = make_embed
+        self.author_id = author_id
+        self.current = 0
+        self._update_buttons()
+
+    def _update_buttons(self):
+        self.prev_btn.disabled = self.current == 0
+        self.next_btn.disabled = self.current >= len(self.pages) - 1
+
+    @discord.ui.button(label="\u25c0 Previous", style=discord.ButtonStyle.secondary)
+    async def prev_btn(self, interaction: discord.Interaction, button: discord.ui.Button):
+        if interaction.user.id != self.author_id:
+            return await interaction.response.send_message("Only the command user can flip pages.", ephemeral=True)
+        self.current -= 1
+        self._update_buttons()
+        await interaction.response.edit_message(embed=self.make_embed(self.current), view=self)
+
+    @discord.ui.button(label="Next \u25b6", style=discord.ButtonStyle.secondary)
+    async def next_btn(self, interaction: discord.Interaction, button: discord.ui.Button):
+        if interaction.user.id != self.author_id:
+            return await interaction.response.send_message("Only the command user can flip pages.", ephemeral=True)
+        self.current += 1
+        self._update_buttons()
+        await interaction.response.edit_message(embed=self.make_embed(self.current), view=self)
+
+    async def on_timeout(self):
+        for item in self.children:
+            item.disabled = True
+
+
 class Tasks(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
@@ -236,13 +270,12 @@ class Tasks(commands.Cog):
             )
             return
 
-        embed = discord.Embed(
-            title=f"\U0001f4cb Tasks \u2014 {project['name']}",
-            color=embedColor
-        )
+        ITEMS_PER_PAGE = 10
 
-        # Group by status for Kanban-style display
+        # Build all task lines
         if not status:
+            # Kanban-style: group by status
+            all_lines = []
             status_groups = {}
             for t in tasks:
                 s = t['status']
@@ -253,32 +286,44 @@ class Tasks(commands.Cog):
             for s in TASK_STATUSES:
                 if s in status_groups:
                     group_tasks = status_groups[s]
-                    lines = []
-                    for t in group_tasks[:5]:
+                    all_lines.append(f"**{statusDisplay(s)} ({len(group_tasks)})**")
+                    for t in group_tasks:
                         p_emoji = PRIORITY_EMOJI.get(t['priority'], '')
                         assignee_str = f" \u2192 <@{t['assignee_id']}>" if t.get('assignee_id') else ""
-                        lines.append(f"`#{t['guild_seq']}` {p_emoji} **{t['title']}**{assignee_str}")
-                    if len(group_tasks) > 5:
-                        lines.append(f"*...and {len(group_tasks) - 5} more*")
-                    embed.add_field(
-                        name=f"{statusDisplay(s)} ({len(group_tasks)})",
-                        value="\n".join(lines),
-                        inline=False
-                    )
+                        all_lines.append(f"`#{t['guild_seq']}` {p_emoji} {t['title']}{assignee_str}")
+                    all_lines.append("")  # blank spacer between groups
         else:
-            lines = []
-            display_tasks = tasks[:25]
-            for t in display_tasks:
+            all_lines = []
+            for t in tasks:
                 p_emoji = PRIORITY_EMOJI.get(t['priority'], '')
                 s_emoji = STATUS_EMOJI.get(t['status'], '')
                 assignee_str = f" \u2192 <@{t['assignee_id']}>" if t.get('assignee_id') else ""
-                lines.append(f"{s_emoji} `#{t['guild_seq']}` {p_emoji} **{t['title']}**{assignee_str}")
-            if len(tasks) > 25:
-                lines.append(f"\n*...and {len(tasks) - 25} more tasks*")
-            embed.description = "\n".join(lines)
+                all_lines.append(f"{s_emoji} `#{t['guild_seq']}` {p_emoji} **{t['title']}**{assignee_str}")
 
-        embed.set_footer(text=f"{len(tasks)} task(s) total")
-        await interaction.followup.send(embed=embed)
+        # Split into pages
+        pages = []
+        for i in range(0, len(all_lines), ITEMS_PER_PAGE):
+            pages.append("\n".join(all_lines[i:i + ITEMS_PER_PAGE]))
+
+        if not pages:
+            pages = ["No tasks."]
+
+        total_pages = len(pages)
+
+        def make_embed(page_idx):
+            embed = discord.Embed(
+                title=f"\U0001f4cb Tasks \u2014 {project['name']}",
+                description=pages[page_idx],
+                color=embedColor
+            )
+            embed.set_footer(text=f"Page {page_idx + 1}/{total_pages} \u2022 {len(tasks)} task(s) total")
+            return embed
+
+        if total_pages == 1:
+            await interaction.followup.send(embed=make_embed(0))
+        else:
+            view = TaskPaginator(pages, make_embed, interaction.user.id)
+            await interaction.followup.send(embed=make_embed(0), view=view)
 
     # ── /task delete ──────────────────────────────
     @task_group.command(name="delete", description="Delete a task")
