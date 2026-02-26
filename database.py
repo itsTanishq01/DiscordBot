@@ -734,6 +734,15 @@ async def archiveChecklist(guildId, guildSeq):
 async def deleteChecklist(guildId, guildSeq):
     async with pool.acquire() as conn:
         await conn.execute("DELETE FROM checklists WHERE guild_id = $1 AND guild_seq = $2", str(guildId), int(guildSeq))
+        # Reset counter to max remaining guild_seq so IDs don't keep climbing
+        maxSeq = await conn.fetchval(
+            "SELECT COALESCE(MAX(guild_seq), 0) FROM checklists WHERE guild_id = $1",
+            str(guildId)
+        )
+        await conn.execute(
+            "UPDATE guild_counters SET next_seq = $1 WHERE guild_id = $2 AND entity_type = 'checklist'",
+            maxSeq, str(guildId)
+        )
 
 async def addChecklistItem(checklistId, text):
     async with pool.acquire() as conn:
